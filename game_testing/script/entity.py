@@ -152,7 +152,8 @@ class Player(physics_entity):
     def __init__(self,main_game,position,size,HP,weapon=None,spell_card=None,accessory=[]):     
         super().__init__(main_game,'player',position,size)
         self.air_time = 0
-        self.jump_count = 2
+        self.jump_count = 1
+        self.stop_jump_check = False
         self.HP = HP
         self.attack_cool_down = 0    
         self.attack_animation = 0
@@ -221,6 +222,7 @@ class Player(physics_entity):
             self.velocity[1] = min(5,self.velocity[1]+0.1) #gravity
         self.air_time += 1
 
+
         self.attack_cool_down = max(0,self.attack_cool_down-1)
         self.inv_time = max(0,self.inv_time-1)
         if abs(self.dashing)<20:
@@ -228,7 +230,9 @@ class Player(physics_entity):
 
         if self.check_collision['down']:
             self.air_time = 0
-            self.jump_count = 2
+            self.jump_count = 1
+        if self.check_collision['right']:
+            self.take_damage(1,[1,0])
         if self.attack_animation > 0:
             self.set_action('attack')
             self.attack_animation -= 1
@@ -267,8 +271,9 @@ class Player(physics_entity):
         #surface.blit(self.main_game.assets['player'],(self.position[0]-offset[0],self.position[1]-offset[1])    )
     def jump(self):
         if self.jump_count > 0:
+            self.stop_jump_check = False
             self.main_game.sfx['jump'].play()
-            self.velocity[1] = -2.5
+            self.velocity[1] = -3.5
             self.jump_count -= 1
             self.air_time = 5
             self.set_action('jump')
@@ -276,6 +281,10 @@ class Player(physics_entity):
                 self.dashing = 0
             return True
         return False
+    def stop_jump(self):
+        if self.velocity[1] < 0:
+            self.velocity[1] = min(0,self.velocity[1]+1) if not self.stop_jump_check else self.velocity[1]
+            self.stop_jump_check = True
 
     def attack(self,is_extra=False):
         if self.attack_cool_down == 0:

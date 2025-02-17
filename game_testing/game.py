@@ -1,5 +1,4 @@
 import pygame
-import pygame.joystick
 import sys
 import os
 import random
@@ -26,12 +25,6 @@ FPS = 60
 class main_game:
     def __init__(self):
         pygame.init()
-        pygame.joystick.init()
-        self.joystick = None
-        if pygame.joystick.get_count() > 0:
-            self.joystick = pygame.joystick.Joystick(0)
-            self.joystick.init()
-
         pygame.display.set_caption("Devil's Dash")
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT),pygame.SRCALPHA)
         #放大兩倍
@@ -167,8 +160,7 @@ class main_game:
         self.projectiles = []
         self.special_projectiles = [] #object [pos,direction,speed,timer,img_name]
         self.particles = []
-        self.sparks = []
-        self.buffer = []    
+        self.sparks = []  
 
         self.camera = [0,0] #camera position = offset of everything
         self.min_max_camera = [0,1120] #min and max camera x position
@@ -261,29 +253,7 @@ class main_game:
                             elif self.pause_select == 2:
                                 pygame.mixer.music.stop()
                                 return
-                    if event.type == pygame.JOYBUTTONDOWN:
-                        if event.button == 11:
-                            self.pause = False
-                            pygame.mixer.music.set_volume(self.bgm_factor/5*0.2)
-                        if event.button == 0:
-                            if self.pause_select == 0:
-                                self.pause = False
-                                pygame.mixer.music.set_volume(self.bgm_factor/5*0.2)  
-                            elif self.pause_select == 1:
-                                self.pause = False
-                                self.dead = 10
-                                pygame.mixer.music.set_volume(self.bgm_factor/5*0.2)
-                            elif self.pause_select == 2:
-                                return
-                    if event.type == pygame.JOYAXISMOTION:
-                        if event.axis == 1:
-                            if event.value < -0.5 and self.pause_select_cd == 0:
-                                self.pause_select = max(0,self.pause_select-1)
-                                self.pause_select_cd = 10
-                            elif event.value > 0.5 and self.pause_select_cd == 0:
-                                self.pause_select = min(2,self.pause_select+1)
-                                self.pause_select_cd = 10
-                
+                    
                 self.pause_select_cd = max(0,self.pause_select_cd-1)
                 
                 self.screen.blit(self.temp_screen, (0,0))
@@ -339,7 +309,7 @@ class main_game:
             self.camera[0] = max(self.min_max_camera[0],self.camera[0])
             self.camera[0] = min(self.min_max_camera[1],self.camera[0])
             #self.camera[1] += (self.player.rect().centery - self.display.get_height()/2 - self.camera[1])/20 #camera follow player y
-            self.render_camera = [int(self.camera[0]), int(self.camera[1])]
+            self.render_camera = [int(self.camera[0])+50, int(self.camera[1])]
 
             self.tilemap.render(self.display,offset=self.render_camera) #render background
 
@@ -492,7 +462,7 @@ class main_game:
                             self.movements[0] = True
                         if event.key == pygame.K_RIGHT:
                             self.movements[1] = True
-                        if event.key == pygame.K_UP:
+                        if event.key == pygame.K_k:
                             self.player.jump()
                         if event.key == pygame.K_SPACE:
                             self.player.dash()
@@ -506,61 +476,11 @@ class main_game:
                             self.movements[0] = False
                         if event.key == pygame.K_RIGHT:
                             self.movements[1] = False
+                        if event.key == pygame.K_k:
+                            self.player.stop_jump()
 
-                    #joystick control
-                    if event.type == pygame.JOYAXISMOTION:
-                        if event.axis == 0:
-                            if event.value < -0.3:
-                                self.movements[0] = True
-                                self.movements[1] = False
-                            elif event.value > 0.3:
-                                self.movements[1] = True
-                                self.movements[0] = False
-                            else:
-                                self.movements[0] = False
-                                self.movements[1] = False
-
-                    if event.type == pygame.JOYBUTTONDOWN:
-                        if event.button == 0:
-                            if not self.player.jump():
-                                self.buffer=["jump",6]
-                        if event.button == 7:
-                            if not self.player.dash():
-                                self.buffer=["dash",6]
-                        if event.button == 3:
-                            if not self.player.attack():
-                                self.buffer=["attack",6]
-                        if event.button == 4:
-                            self.player.charge_attack()
-                        if event.button == 11:
-                            self.pause = True
-                            self.movements = [False,False]  
-                    if event.type == pygame.JOYBUTTONUP:
-                        if event.button == 0 and "jump" in self.buffer:
-                            self.buffer=[]
-                            pass
-                        if event.button == 7 and "dash" in self.buffer:
-                            self.buffer=[]
-                            pass
-                        if event.button == 3 and "attack" in self.buffer:
-                            self.buffer=[]
-                            pass
-
-                if self.buffer:
-                    self.buffer[1] -= 1
-                    if self.buffer[1] == 0:
-                        self.buffer=[]
-                    elif self.buffer[0] == "jump":
-                        if self.player.jump():
-                            self.buffer=[]
-                    elif self.buffer[0] == "dash":
-                        if self.player.dash():
-                            self.buffer=[]
-                    elif self.buffer[0] == "attack":
-                        if self.player.attack():
-                            self.buffer=[]
-                        
-
+                #player keeps move right
+                self.movements[1] = True
     
 
                 self.screen_shake_timer = max(0,self.screen_shake_timer-1)
@@ -569,37 +489,7 @@ class main_game:
             if not self.in_cutscene:
                 for i in range(self.player.HP):
                     self.display_for_outline.blit(self.assets['HP'],(i*18,20))
-            #ranering energy acording to player's energy
-            '''
-            if self.player.charge < self.player.max_charge:
-                ratio = self.player.charge/self.player.max_charge
-                pygame.draw.rect(self.display_for_outline,(255,194,14),(7,37,70*ratio,4))
-                self.display_for_outline.blit(pygame.transform.scale(self.assets['energy_empty'],(70,12)),(4,33))
-            else:
-                self.display_for_outline.blit(pygame.transform.scale(self.assets['energy_max'],(70,12)),(4,33))
-            '''
-            #rendering boss HP, scale the horizontal to 58
-            '''
-            for enemy in self.enemy_spawners:
-                if enemy.type == 'boss':
-                    for i in range(4-enemy.phase):
-                        img = self.assets['star']
-                        img = pygame.transform.scale(img,(img.get_width()*0.9,img.get_height()*0.9))
-                        self.display_for_outline.blit(img,(270-i*20,15))
-                    if enemy.phase != 3 and enemy.HP < enemy.max_HP:
-                        ratio = enemy.HP/enemy.max_HP
-                        pygame.draw.rect(self.display_for_outline,(255,0,0),(233+55*(1-ratio),34,55*ratio,4))
-                        self.display_for_outline.blit(pygame.transform.scale(self.assets['Boss_empty'],(58,12)),(230,30))
-                    elif enemy.phase == 3 and enemy.timer_HP < enemy.max_HP:
-                        ratio = enemy.timer_HP/enemy.max_HP
-                        #orange
-                        pygame.draw.rect(self.display_for_outline,(255,127,0),(233+55*(1-ratio),34,55*ratio,4))
-                        self.display_for_outline.blit(pygame.transform.scale(self.assets['Boss_empty'],(58,12)),(230,30))
-                    else:
-                        self.display_for_outline.blit(pygame.transform.scale(self.assets['Boss_full'],(58,12)),(230,30))
-            '''
-                
-                      
+            
             self.display_for_outline.blit(self.display, (0,0))
             
             self.screen.blit(pygame.transform.scale(self.display_for_outline, (2*SCREEN_WIDTH, 2*SCREEN_HEIGHT)), self.screen_shake_offset) 
@@ -735,17 +625,7 @@ class main_game:
                                 pygame.mixer.music.load("game_testing/data/sfx/music_1.wav")
                                 pygame.mixer.music.set_volume(self.bgm_factor/5*0.2)
                                 pygame.mixer.music.play(-1)
-                    if event.type == pygame.JOYBUTTONDOWN:
-                        if event.button == 0:
-                            self.text_list.pop(0)
-                            self.order_list.pop(0)
-                            self.text_counter = 0
-                            if not self.text_list:
-                                self.in_cutscene = False
-                                pygame.mixer.music.load("game_testing/data/sfx/music_1.wav")
-                                pygame.mixer.music.set_volume(self.bgm_factor/5*0.2)
-                                pygame.mixer.music.play(-1)
-
+                   
             if self.battle_count_down > 0 and not self.in_cutscene:
                 self.battle_count_down -= 1
                 #blit battle_start at the middle of the screen
@@ -805,27 +685,7 @@ class main_game:
                         pygame.mixer.music.load("game_testing/data/sfx/Raise_the_Flag_of_Cheating.wav")
                         pygame.mixer.music.set_volume(self.bgm_factor/5*0.3)
                         pygame.mixer.music.play(-1)
-                if event.type == pygame.JOYBUTTONDOWN:
-                    if event.button == 0 and self.title_select[0]:  
-                        for i in range(100):
-                            decrease_light = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA).copy()
-                            decrease_light.fill((0, 0, 0, 5))  # RGBA: (0, 0, 0, 128) for half transparency
-                            self.screen.blit(decrease_light, (0, 0))
-                            pygame.mixer.music.set_volume(self.bgm_factor/5*0.3*(60-i)/60)
-                            self.clock.tick(60)
-                            if not i:
-                                self.screen.blit(self.display_brightness, (0, 0))
-                            pygame.display.flip()
-                        self.load_level()
-                        self.run_game()
-                        pygame.mixer.music.load("game_testing/data/sfx/Raise_the_Flag_of_Cheating.wav")
-                        pygame.mixer.music.set_volume(self.bgm_factor/5*0.3)
-                        pygame.mixer.music.play(-1)
-                    elif event.button == 0 and self.title_select[2]:
-                        self.run_setting()
-                    elif event.button == 0 and self.title_select[1]:
-                        pygame.quit()
-                if event.type == pygame.JOYAXISMOTION:
+
                     #THERE IS A BUG WITH COUNTING ISSUE WHICH RESULT IN THE ORDER BEING 1 3 2, DO NOT TRY TO FIX IT
                     if event.axis == 1:
                         if event.value < -0.5 and self.title_select_cd == 0:
@@ -927,45 +787,6 @@ class main_game:
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_SPACE:
                         return
-                if event.type == pygame.JOYBUTTONDOWN:
-                    if event.button == 0:
-                        if self.setting_select[3][0] or self.setting_select[3][1]:
-                            return
-                        elif self.setting_select[0][0]:
-                            self.bgm_factor = max(0,self.bgm_factor-1)
-                        elif self.setting_select[0][1]:
-                            self.bgm_factor = min(10,self.bgm_factor+1)
-                        elif self.setting_select[1][0]:
-                            self.sfx_factor = max(0,self.sfx_factor-1)
-                        elif self.setting_select[1][1]:
-                            self.sfx_factor = min(10,self.sfx_factor+1)
-                        elif self.setting_select[2][0]:
-                            self.brightness = max(0,self.brightness-1)
-                        elif self.setting_select[2][1]:
-                            self.brightness = min(3,self.brightness+1) 
-                if event.type == pygame.JOYAXISMOTION:
-                    if event.axis == 1 and self.setting_select_cd == 0:
-                        if self.setting_index[0]==0 and self.setting_index[1]==0:
-                            self.setting_index=[1,1]
-                        elif event.value < -0.5 and self.setting_select_cd == 0:
-                            self.setting_index[0] = max(self.setting_index[0]-1,1)
-                        elif event.value > 0.5 and self.setting_select_cd == 0:
-                            self.setting_index[0] = min(self.setting_index[0]+1,4)
-                        if abs(event.value) > 0.5:
-                            self.setting_select=[[False,False],[False,False],[False,False],[False,False]]
-                            self.setting_select[self.setting_index[0]-1][self.setting_index[1]-1] = True
-                            self.setting_select_cd = 10
-                    if event.axis == 0 and self.setting_select_cd == 0:
-                        if self.setting_index[0]==0 and self.setting_index[1]==0:
-                            self.setting_index=[1,1]
-                        elif event.value < -0.5 and self.setting_select_cd == 0:
-                            self.setting_index[1] = max(self.setting_index[1]-1,1)
-                        elif event.value > 0.5 and self.setting_select_cd == 0:
-                            self.setting_index[1] = min(self.setting_index[1]+1,2)
-                        if abs(event.value) > 0.5:
-                            self.setting_select=[[False,False],[False,False],[False,False],[False,False]]
-                            self.setting_select[self.setting_index[0]-1][self.setting_index[1]-1] = True
-                            self.setting_select_cd = 10
             #setting
             pygame.mixer.music.set_volume(self.bgm_factor/5*0.3)
             self.sfx["ambience"].set_volume(0.2*self.sfx_factor/5)
