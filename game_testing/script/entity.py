@@ -80,6 +80,7 @@ class physics_entity:
         self.velocity = [0,0]
         self.dashing = 0
         self.jumping = False
+        self.render_type = 'normal'
 
         #Animation
         self.action = ''
@@ -97,7 +98,7 @@ class physics_entity:
 
     def update(self, movement=(0,0),tilemap=None):
         self.check_collision = {'up':False, 'down':False, 'left':False, 'right':False}
-        frame_movement = [movement[0] + self.velocity[0], movement[1] + self.velocity[1]]
+        frame_movement = [(movement[0] + self.velocity[0]), movement[1] + self.velocity[1]]
 
         self.position[0] += frame_movement[0]
         entity_rect = self.rect()
@@ -105,7 +106,6 @@ class physics_entity:
         for rect in tilemap.tile_collision(self.position):
             if entity_rect.colliderect(rect):
                 if frame_movement[0] > 0:
-                    entity_rect.right = rect.left
                     self.check_collision['right'] = True
                 if frame_movement[0] < 0:
                     entity_rect.left = rect.right
@@ -127,14 +127,13 @@ class physics_entity:
                     self.check_collision['down'] = True
                     self.jumping = False
                 if frame_movement[1] < 0:
-                    entity_rect.top = rect.bottom
                     self.check_collision['up'] = True
                 self.position[1] = entity_rect.y
 
 
-        if self.check_collision['down'] or self.check_collision['up']:
-            self.velocity[1] = 0      
-
+        if self.check_collision['down']:
+            self.velocity[1] = 0  
+              
         self.anim.update()  
 
     def render(self,surface,offset=[0,0]):
@@ -166,6 +165,7 @@ class Player(physics_entity):
         self.spell_card = spell_card
         self.accessory = accessory
         self.damage=2
+        self.score = 0
         self.charge_effect = False
         if self.weapon == "貪欲的叉勺":
             self.damage = 3
@@ -218,7 +218,7 @@ class Player(physics_entity):
     def update(self, movement=(0,0),tilemap=None):
         super().update(movement,tilemap)
         #if player is dashing, do not apply gravity
-        if not (abs(self.dashing) > 50):
+        if self.velocity[1]<5 and not (abs(self.dashing) > 50):
             self.velocity[1] = min(5,self.velocity[1]+0.1) #gravity
         self.air_time += 1
 
@@ -231,8 +231,10 @@ class Player(physics_entity):
         if self.check_collision['down']:
             self.air_time = 0
             self.jump_count = 1
-        if self.check_collision['right']:
+        if self.check_collision['right'] and not self.check_collision['up']:
             self.take_damage(1,[1,0])
+        elif self.check_collision['up']:
+            self.inv_time = 10
         if self.attack_animation > 0:
             self.set_action('attack')
             self.attack_animation -= 1
@@ -273,7 +275,7 @@ class Player(physics_entity):
         if self.jump_count > 0:
             self.stop_jump_check = False
             self.main_game.sfx['jump'].play()
-            self.velocity[1] = -3.5
+            self.velocity[1] = -4
             self.jump_count -= 1
             self.air_time = 5
             self.set_action('jump')
@@ -283,9 +285,13 @@ class Player(physics_entity):
         return False
     def stop_jump(self):
         if self.velocity[1] < 0:
-            self.velocity[1] = min(0,self.velocity[1]+1) if not self.stop_jump_check else self.velocity[1]
+            self.velocity[1] = min(0,self.velocity[1]+1.3) if not self.stop_jump_check else self.velocity[1]
             self.stop_jump_check = True
 
+    def fast_fall(self):
+        if not self.check_collision['down']:
+            self.velocity[1] = 10
+            
     def attack(self,is_extra=False):
         if self.attack_cool_down == 0:
             self.main_game.sfx['swing'].play()
@@ -397,14 +403,6 @@ class Player(physics_entity):
     def take_damage(self,damage=1,relative_pos=[0,0]):
         if self.inv_time == 0:
             self.relative_pos = relative_pos
-            if self.relative_pos[0] > 0:
-                self.flip = True
-                self.velocity[0] = 2
-                self.velocity[1] = -2   
-            else:
-                self.flip = False
-                self.velocity[0] = -2
-                self.velocity[1] = -2
             #if player takes damage, lose 1 HP and got knockback to the opposite direction of the enemy
             self.HP -= damage
             self.main_game.sfx['got_hit'].play()
@@ -901,9 +899,13 @@ class Enemy(physics_entity):
     def render(self,surface,offset=[0,0]):
         super().render(surface,offset)
 
+class obstacle(physics_entity):
+    def __init__(self, main_game, entity_type, position, size):
+        super().__init__(main_game, entity_type, position, size)
+        self.render_type = 'obstacle'
 
 
-class Beam(physics_entity):
+class Beam(obstacle):
     def __init__(self,main_game,position,size,velocity=[0,0],duration=0):
         super().__init__(main_game,'beam',position,size)
         self.duration = duration
@@ -925,20 +927,74 @@ class Beam(physics_entity):
     def render(self,surface,offset=[0,0]):
         super().render(surface,offset)
 
-
-class Dummy(physics_entity):
-    def __init__(self,main_game,position,size,velocity=[0,0]):
-        super().__init__(main_game,'dummy',position,size)
-        self.anim_offset = [-10,-21]
-        self.HP = 30
-        self.type = 'dummy'
-        
+class Box(obstacle):
+    def __init__(self,main_game,position,size,velocity=[0,0],duration=0):
+        super().__init__(main_game,'box',position,size)
+        self.duration = duration
+        self.velocity = velocity
+        self.anim_offset = [0,0]
+        self.type = 'box'        
 
     def update(self,movement=(0,0),tilemap=None):
-        super().update(movement,tilemap)
-        self.velocity[1] = min(5,self.velocity[1]+0.1) #gravity
-        if self.HP <= 0:
+        self.duration -= 1
+        if self.duration == 0:
             return True
+        super().update(movement,tilemap)
+        if self.rect().colliderect(self.main_game.player.rect()) and abs(self.main_game.player.dashing) < 50: 
+            self.main_game.player.take_damage(1,self.check_player_pos())
+
+    def check_player_pos(self):
+        return list((self.main_game.player.rect().centerx - self.rect().centerx, self.main_game.player.rect().centery - self.rect().centery))
+
+    def render(self,surface,offset=[0,0]):
+        super().render(surface,offset)
+
+class pillar(obstacle):
+    def __init__(self,main_game,position,size,velocity=[0,0],duration=0):
+        super().__init__(main_game,'pillar',position,size)
+        self.duration = duration
+        self.velocity = velocity
+        self.anim_offset = [0,0]
+        self.type = 'pillar'        
+
+    def update(self,movement=(0,0),tilemap=None):
+        self.duration -= 1
+        if self.duration == 0:
+            return True
+        super().update(movement,tilemap)
+        if self.rect().colliderect(self.main_game.player.rect()) and abs(self.main_game.player.dashing) < 50: 
+            self.main_game.player.take_damage(1,self.check_player_pos())
+
+    def check_player_pos(self):
+        return list((self.main_game.player.rect().centerx - self.rect().centerx, self.main_game.player.rect().centery - self.rect().centery))
+
+    def render(self,surface,offset=[0,0]):
+        super().render(surface,offset)
+
+class Scrap(obstacle):
+    def __init__(self,main_game,position,size,velocity=[0,0],duration=0):
+        super().__init__(main_game,'scrap',position,size)
+        self.duration = duration
+        self.velocity = velocity
+        self.anim_offset = [0,0]
+        self.type = 'scrap'        
+
+    def update(self,movement=(0,0),tilemap=None):
+        self.duration -= 1
+        if self.duration == 0:
+            return True
+        super().update(movement,tilemap)
+        if self.rect().colliderect(self.main_game.player.rect()): 
+            #play coin sfx
+            self.main_game.sfx['coin'].play()
+            self.main_game.scrap += 1
+            self.main_game.player.score += 1
+            #remove the scrap
+            return True
+
+
+    def check_player_pos(self):
+        return list((self.main_game.player.rect().centerx - self.rect().centerx, self.main_game.player.rect().centery - self.rect().centery))
 
     def render(self,surface,offset=[0,0]):
         super().render(surface,offset)

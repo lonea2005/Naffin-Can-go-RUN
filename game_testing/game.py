@@ -3,12 +3,12 @@ import sys
 import os
 import random
 import math
-from script.entity import Player, Enemy, Beam, Dummy
+from script.entity import Player, Enemy, Beam, Box, Scrap
 from script.utils import load_image,load_white_image
 from script.utils import load_tile,load_trans_tile
 from script.utils import load_fix_tile
 from script.utils import load_images
-from script.utils import load_trans_images,load_trans_image,load_trans_scaled_images
+from script.utils import load_trans_images,load_trans_image,load_trans_scaled_images,load_scaled_images
 from script.utils import load_sfx
 from script.utils import Animation
 from script.tilemap import Tilemap, small_tile
@@ -81,7 +81,8 @@ class main_game:
             "enemy/jump" : Animation(load_trans_images("entities/enemy/jump"),duration=5,loop=True),
             "enemy/dash" : Animation(load_trans_images("entities/enemy/dash"),duration=4,loop=False),
             "beam/idle" : Animation(load_trans_images("entities/beam"),duration=5,loop=True),
-            "dummy/idle" : Animation(load_trans_images("entities/dummy/idle"),duration=6,loop=True),
+            "scrap/idle" : Animation(load_trans_images("entities/scrap"),duration=5,loop=True),
+            "box/idle" : Animation(load_scaled_images("entities/box",2),duration=5,loop=True),
             "player/idle" : Animation(load_trans_images("entities/player/idle"),duration=10,loop=True),
             "player/run" : Animation(load_trans_images("entities/player/run"),duration=10,loop=True),
             "player/jump" : Animation(load_trans_images("entities/player/jump"),duration=5,loop=True),
@@ -130,12 +131,14 @@ class main_game:
             "got_hit" : load_sfx("player_take_damage.wav"),
             "ambience" : load_sfx("ambience.wav"),
             "swing" : load_sfx("swing.wav"),
+            "coin" : load_sfx("swing.wav"),
         }   
         self.sfx["ambience"].set_volume(0.2)
         self.sfx["shoot"].set_volume(0.5)
         self.sfx["jump"].set_volume(0.7)
         self.sfx["dash"].set_volume(0.7)
         self.sfx["swing"].set_volume(0.7)
+        self.sfx["coin"].set_volume(0.7)
         self.sfx["hit"].set_volume(0.8) 
         self.sfx["got_hit"].set_volume(1)
 
@@ -145,6 +148,9 @@ class main_game:
 
 
         self.level = -1
+
+        self.scrap = 0
+        self.checkpoint = 0
 
     def load_level(self,new_level=True):
         self.pause = False
@@ -163,7 +169,7 @@ class main_game:
         self.sparks = []  
 
         self.camera = [0,0] #camera position = offset of everything
-        self.min_max_camera = [0,1120] #min and max camera x position
+        self.min_max_camera = [0,2440] #min and max camera x position
         self.screen_shake_timer = 0
         self.screen_shake_offset = [0,0]
         self.dead = 0 #dead animation
@@ -178,15 +184,17 @@ class main_game:
             self.fire_spawners.append(pygame.Rect(4+fire.pos[0], 4+fire.pos[1], 23, 13))
 
         self.enemy_spawners = []
-        for spawner in self.tilemap.extract([('spawners',0),('spawners',1),('spawners',2),('spawners',3)],keep=False):
+        for spawner in self.tilemap.extract([('spawners',0),('spawners',1),('spawners',2),('spawners',3),('spawners',4)],keep=False):
             if spawner.variant == 0:
                 self.player.position = spawner.pos #player start position
             elif spawner.variant == 1:
                 self.enemy_spawners.append(Enemy(self,spawner.pos,(8,15),phase=1))
             elif spawner.variant == 2:
-                self.enemy_spawners.append(Beam(self,spawner.pos,(22,144),duration=-1))
+                self.enemy_spawners.append(Beam(self,spawner.pos,(20,144),duration=-1))
             elif spawner.variant == 3:
-                self.enemy_spawners.append(Dummy(self,spawner.pos,(8,15)))
+                self.enemy_spawners.append(Box(self,(spawner.pos[0]+2,spawner.pos[1]+2),(26,29),duration=-1))
+            elif spawner.variant == 4:
+                self.enemy_spawners.append(Scrap(self,spawner.pos,(8,8),duration=-1))
 
 
         if self.level == 0:
@@ -315,7 +323,7 @@ class main_game:
 
             if self.in_cutscene == False and self.cutscene_timer == 0:
                 #tutorial end
-                if self.player.position[0] > 1447 and self.level == -1 and self.win == 0:
+                if self.player.position[0] > 2880 and self.level == -1 and self.win == 0:
                     self.win = 1
                 for spawner in self.fire_spawners:
                     if random.random() * 4999 < spawner.width* spawner.height:
@@ -325,7 +333,7 @@ class main_game:
 
                 for enemy in self.enemy_spawners.copy():
                     kill = enemy.update((0,0),self.tilemap)
-                    if enemy.type == "beam":
+                    if enemy.render_type == "obstacle":
                         enemy.render(self.display,offset=self.render_camera)
                     if kill and enemy.type == "boss":
                         self.projectiles=[] 
@@ -464,6 +472,8 @@ class main_game:
                             self.movements[1] = True
                         if event.key == pygame.K_k:
                             self.player.jump()
+                        if event.key == pygame.K_l:
+                            self.player.fast_fall()
                         if event.key == pygame.K_SPACE:
                             self.player.dash()
                         if event.key == pygame.K_z: 
@@ -509,7 +519,7 @@ class main_game:
                     img = pygame.transform.scale(self.assets['energy_max'],(58*8,12*8))
                     self.screen.blit(pygame.transform.flip(img,False,True),(-20,130))
                 for enemy in self.enemy_spawners:
-                    if enemy.type != "beam":
+                    if enemy.render_type != "obstacle":
                         enemy.render_new(self.screen,offset=self.render_camera)
                     
                     if enemy.type == 'boss':
