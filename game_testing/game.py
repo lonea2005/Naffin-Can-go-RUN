@@ -3,7 +3,7 @@ import sys
 import os
 import random
 import math
-from script.entity import Player, Enemy, Beam, Box, Scrap
+from script.entity import Player, Enemy, Beam, Box, Scrap, Tutorial_trigger
 from script.utils import load_image,load_white_image
 from script.utils import load_tile,load_trans_tile
 from script.utils import load_fix_tile
@@ -80,9 +80,12 @@ class main_game:
             "enemy/run" : Animation(load_trans_images("entities/enemy/run"),duration=10,loop=True),
             "enemy/jump" : Animation(load_trans_images("entities/enemy/jump"),duration=5,loop=True),
             "enemy/dash" : Animation(load_trans_images("entities/enemy/dash"),duration=4,loop=False),
+
             "beam/idle" : Animation(load_trans_images("entities/beam"),duration=5,loop=True),
             "scrap/idle" : Animation(load_trans_images("entities/scrap"),duration=5,loop=True),
             "box/idle" : Animation(load_scaled_images("entities/box",2),duration=5,loop=True),
+            "trigger/idle" : Animation(load_trans_images("entities/trigger"),duration=5,loop=True),
+
             "player/idle" : Animation(load_trans_images("entities/player/idle"),duration=10,loop=True),
             "player/run" : Animation(load_trans_images("entities/player/run"),duration=10,loop=True),
             "player/jump" : Animation(load_trans_images("entities/player/jump"),duration=5,loop=True),
@@ -154,6 +157,8 @@ class main_game:
 
     def load_level(self,new_level=True):
         self.pause = False
+        self.tutorial = 0
+        self.tutorial_pause = False
         self.pause_select = 0
         self.pause_select_cd = 0
         self.battle_count_down = 0
@@ -184,7 +189,7 @@ class main_game:
             self.fire_spawners.append(pygame.Rect(4+fire.pos[0], 4+fire.pos[1], 23, 13))
 
         self.enemy_spawners = []
-        for spawner in self.tilemap.extract([('spawners',0),('spawners',1),('spawners',2),('spawners',3),('spawners',4)],keep=False):
+        for spawner in self.tilemap.extract([('spawners',0),('spawners',1),('spawners',2),('spawners',3),('spawners',4),('spawners',5)],keep=False):
             if spawner.variant == 0:
                 self.player.position = spawner.pos #player start position
             elif spawner.variant == 1:
@@ -195,6 +200,8 @@ class main_game:
                 self.enemy_spawners.append(Box(self,(spawner.pos[0]+2,spawner.pos[1]+2),(26,29),duration=-1))
             elif spawner.variant == 4:
                 self.enemy_spawners.append(Scrap(self,spawner.pos,(8,8),duration=-1))
+            elif spawner.variant == 5:
+                self.enemy_spawners.append(Tutorial_trigger(self,spawner.pos,(20,144),duration=-1))
 
 
         if self.level == 0:
@@ -282,6 +289,27 @@ class main_game:
                 pygame.display.update()
                 self.clock.tick(FPS)
 
+            while self.tutorial_pause:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        pygame.quit()
+                        sys.exit()
+                    if event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_UP and self.tutorial <= 3:
+                            self.tutorial_pause = False
+                            if self.tutorial == 0 or self.tutorial == 2:
+                                self.player.tutorial_jump() 
+                            else:
+                                self.player.jump()
+                            self.tutorial += 1
+                        if event.key == pygame.K_DOWN and self.tutorial == 4:
+                            self.tutorial_pause = False
+                            self.player.fast_fall()
+                            self.tutorial += 1
+                self.screen.blit(self.temp_screen, (0,0))
+                pygame.display.update()
+                self.clock.tick(FPS)
+
 
             self.display.fill((0,0,0,0))
             if self.level <=0:
@@ -335,7 +363,10 @@ class main_game:
                     kill = enemy.update((0,0),self.tilemap)
                     if enemy.render_type == "obstacle":
                         enemy.render(self.display,offset=self.render_camera)
-                    if kill and enemy.type == "boss":
+                    if kill and enemy.type == "trigger":
+                        self.enemy_spawners.remove(enemy)
+                        self.tutorial_pause = True
+                    elif kill and enemy.type == "boss":
                         self.projectiles=[] 
                         self.special_projectiles=[]
                         phase = enemy.phase
@@ -470,9 +501,9 @@ class main_game:
                             self.movements[0] = True
                         if event.key == pygame.K_RIGHT:
                             self.movements[1] = True
-                        if event.key == pygame.K_k:
+                        if event.key == pygame.K_j:
                             self.player.jump()
-                        if event.key == pygame.K_l:
+                        if event.key == pygame.K_k:
                             self.player.fast_fall()
                         if event.key == pygame.K_SPACE:
                             self.player.dash()
@@ -480,13 +511,14 @@ class main_game:
                             self.player.attack()
                         if event.key == pygame.K_p:
                             self.pause = True
+                            #self.tutorial_pause = True
                             self.movements = [False,False]  
                     if event.type == pygame.KEYUP:
                         if event.key == pygame.K_LEFT:
                             self.movements[0] = False
                         if event.key == pygame.K_RIGHT:
                             self.movements[1] = False
-                        if event.key == pygame.K_k:
+                        if event.key == pygame.K_j:
                             self.player.stop_jump()
 
                 #player keeps move right
@@ -594,6 +626,16 @@ class main_game:
                 self.pause_select = 0
                 self.temp_screen = self.screen.copy()
                 pygame.mixer.music.set_volume(self.bgm_factor/5*0.1)
+
+            if self.tutorial_pause:
+                #pause screen: blit a half transparent black screen
+                pause_screen = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+                pause_screen.fill((0, 0, 0, 128))  # RGBA: (0, 0, 0, 128) for half transparency
+                pygame.draw.circle(pause_screen,(255,255,255),(500,500),10)
+                pause_screen.set_colorkey((255,255,255))
+                self.screen.blit(pygame.transform.scale(self.display, (2*SCREEN_WIDTH, 2*SCREEN_HEIGHT)), (0,0)) 
+                self.screen.blit(pause_screen, (0, 0))
+                self.temp_screen = self.screen.copy()
 
             if self.in_cutscene == True and not self.transition: 
                 speed = 4

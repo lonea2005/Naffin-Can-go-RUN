@@ -283,6 +283,14 @@ class Player(physics_entity):
                 self.dashing = 0
             return True
         return False
+    def tutorial_jump(self):
+        self.stop_jump_check = False
+        self.main_game.sfx['jump'].play()
+        self.velocity[1] = -3.2
+        self.jump_count -= 1
+        self.air_time = 5
+        self.set_action('jump')
+        return True
     def stop_jump(self):
         if self.velocity[1] < 0:
             self.velocity[1] = min(0,self.velocity[1]+1.3) if not self.stop_jump_check else self.velocity[1]
@@ -903,6 +911,12 @@ class obstacle(physics_entity):
     def __init__(self, main_game, entity_type, position, size):
         super().__init__(main_game, entity_type, position, size)
         self.render_type = 'obstacle'
+    def check_player_pos(self):
+        return list((self.main_game.player.rect().centerx - self.rect().centerx, self.main_game.player.rect().centery - self.rect().centery))
+
+    def render(self,surface,offset=[0,0]):
+        super().render(surface,offset)
+
 
 
 class Beam(obstacle):
@@ -921,12 +935,6 @@ class Beam(obstacle):
         if self.rect().colliderect(self.main_game.player.rect()) and abs(self.main_game.player.dashing) < 50: 
             self.main_game.player.take_damage(1,self.check_player_pos())
 
-    def check_player_pos(self):
-        return list((self.main_game.player.rect().centerx - self.rect().centerx, self.main_game.player.rect().centery - self.rect().centery))
-
-    def render(self,surface,offset=[0,0]):
-        super().render(surface,offset)
-
 class Box(obstacle):
     def __init__(self,main_game,position,size,velocity=[0,0],duration=0):
         super().__init__(main_game,'box',position,size)
@@ -943,12 +951,6 @@ class Box(obstacle):
         if self.rect().colliderect(self.main_game.player.rect()) and abs(self.main_game.player.dashing) < 50: 
             self.main_game.player.take_damage(1,self.check_player_pos())
 
-    def check_player_pos(self):
-        return list((self.main_game.player.rect().centerx - self.rect().centerx, self.main_game.player.rect().centery - self.rect().centery))
-
-    def render(self,surface,offset=[0,0]):
-        super().render(surface,offset)
-
 class pillar(obstacle):
     def __init__(self,main_game,position,size,velocity=[0,0],duration=0):
         super().__init__(main_game,'pillar',position,size)
@@ -964,12 +966,6 @@ class pillar(obstacle):
         super().update(movement,tilemap)
         if self.rect().colliderect(self.main_game.player.rect()) and abs(self.main_game.player.dashing) < 50: 
             self.main_game.player.take_damage(1,self.check_player_pos())
-
-    def check_player_pos(self):
-        return list((self.main_game.player.rect().centerx - self.rect().centerx, self.main_game.player.rect().centery - self.rect().centery))
-
-    def render(self,surface,offset=[0,0]):
-        super().render(surface,offset)
 
 class Scrap(obstacle):
     def __init__(self,main_game,position,size,velocity=[0,0],duration=0):
@@ -993,8 +989,19 @@ class Scrap(obstacle):
             return True
 
 
-    def check_player_pos(self):
-        return list((self.main_game.player.rect().centerx - self.rect().centerx, self.main_game.player.rect().centery - self.rect().centery))
 
-    def render(self,surface,offset=[0,0]):
-        super().render(surface,offset)
+class Tutorial_trigger(obstacle):
+    def __init__(self,main_game,position,size,velocity=[0,0],duration=0):
+        super().__init__(main_game,'trigger',position,size)
+        self.duration = duration
+        self.velocity = velocity
+        self.anim_offset = [0,0]
+        self.type = 'trigger'        
+
+    def update(self,movement=(0,0),tilemap=None):
+        self.duration -= 1
+        if self.duration == 0:
+            return True
+        super().update(movement,tilemap)
+        if self.rect().colliderect(self.main_game.player.rect()): 
+            return True

@@ -75,7 +75,7 @@ class editor:
             if self.on_grid:
                 self.display.blit(self.assets[self.tile_list[self.tile_group]][self.tile_variant], (tile_pos[0]*self.tilemap.tile_size - self.camera[0], tile_pos[1]*self.tilemap.tile_size - self.camera[1]))
             else:
-                self.display.blit(self.assets[self.tile_list[self.tile_group]][self.tile_variant], (mouse_pos[0] - self.camera[0], mouse_pos[1] - self.camera[1]))   
+                self.display.blit(self.assets[self.tile_list[self.tile_group]][self.tile_variant], mouse_pos)   
 
             if self.click and self.on_grid:
                 self.tilemap.tilemap[str(tile_pos[0]) + ";" + str(tile_pos[1])] = small_tile(self.tile_list[self.tile_group], self.tile_variant, tile_pos)  
