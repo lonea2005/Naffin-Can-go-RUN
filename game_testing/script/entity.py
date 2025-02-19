@@ -202,6 +202,8 @@ class Player(physics_entity):
             pass
         if "巫女的御幣" in self.accessory:
             self.extra_attack = True
+
+        self.harpoon_counter = 0
         
     
     def testing_stats(self):
@@ -218,8 +220,13 @@ class Player(physics_entity):
     def update(self, movement=(0,0),tilemap=None):
         super().update(movement,tilemap)
         #if player is dashing, do not apply gravity
-        if self.velocity[1]<5 and not (abs(self.dashing) > 50):
+        if self.harpoon_counter > 0:
+            self.harpoon_counter -= 1
+            if self.harpoon_counter == 1920:
+                self.main_game.projectiles.append([[self.rect().centerx,self.rect().centery],3,1,"harpoon"])
+        if self.velocity[1]<5 and not (abs(self.dashing) > 50) and self.harpoon_counter<1800:
             self.velocity[1] = min(5,self.velocity[1]+0.1) #gravity
+
         self.air_time += 1
 
 
@@ -407,6 +414,19 @@ class Player(physics_entity):
             self.inv_time = 15 #extra 5 frams of invincibility
             return True 
         return False
+
+    def harpoon(self):
+        if "harpoon" in self.main_game.tools and self.harpoon_counter <= 0:
+            self.velocity = [0,0]
+            self.main_game.sfx['jump'].play()
+            self.harpoon_counter = 180+1800
+            for i in range(30):
+                #add leaf particle arround the player
+                angle = random.random()*math.pi*2
+                speed = random.random() *3
+                self.main_game.sparks.append(Flexible_Spark(self.rect().center,angle,2+random.random(),(0,255,0)))
+            return True
+
 
     def take_damage(self,damage=1,relative_pos=[0,0]):
         if self.inv_time == 0:
@@ -916,7 +936,14 @@ class obstacle(physics_entity):
 
     def render(self,surface,offset=[0,0]):
         super().render(surface,offset)
-
+    
+    def update(self, movement=(0, 0), tilemap=None):
+        super().update(movement, tilemap)
+        if self.check_player_pos()[0] > 500:
+            if self.type == 'trigger':
+                #self.main_game.tutorial += 1
+                pass
+            return True
 
 
 class Beam(obstacle):
@@ -931,9 +958,10 @@ class Beam(obstacle):
         self.duration -= 1
         if self.duration == 0:
             return True
-        super().update(movement,tilemap)
         if self.rect().colliderect(self.main_game.player.rect()) and abs(self.main_game.player.dashing) < 50: 
             self.main_game.player.take_damage(1,self.check_player_pos())
+        return super().update(movement,tilemap)
+        
 
 class Box(obstacle):
     def __init__(self,main_game,position,size,velocity=[0,0],duration=0):
@@ -947,10 +975,11 @@ class Box(obstacle):
         self.duration -= 1
         if self.duration == 0:
             return True
-        super().update(movement,tilemap)
         if self.rect().colliderect(self.main_game.player.rect()) and abs(self.main_game.player.dashing) < 50: 
             self.main_game.player.take_damage(1,self.check_player_pos())
 
+        return super().update(movement,tilemap)
+        
 class pillar(obstacle):
     def __init__(self,main_game,position,size,velocity=[0,0],duration=0):
         super().__init__(main_game,'pillar',position,size)
@@ -963,10 +992,11 @@ class pillar(obstacle):
         self.duration -= 1
         if self.duration == 0:
             return True
-        super().update(movement,tilemap)
         if self.rect().colliderect(self.main_game.player.rect()) and abs(self.main_game.player.dashing) < 50: 
             self.main_game.player.take_damage(1,self.check_player_pos())
 
+        return super().update(movement,tilemap)
+        
 class Scrap(obstacle):
     def __init__(self,main_game,position,size,velocity=[0,0],duration=0):
         super().__init__(main_game,'scrap',position,size)
@@ -979,7 +1009,6 @@ class Scrap(obstacle):
         self.duration -= 1
         if self.duration == 0:
             return True
-        super().update(movement,tilemap)
         if self.rect().colliderect(self.main_game.player.rect()): 
             #play coin sfx
             self.main_game.sfx['coin'].play()
@@ -987,6 +1016,8 @@ class Scrap(obstacle):
             self.main_game.player.score += 1
             #remove the scrap
             return True
+        return super().update(movement,tilemap)
+        
 
 
 
@@ -1002,6 +1033,7 @@ class Tutorial_trigger(obstacle):
         self.duration -= 1
         if self.duration == 0:
             return True
-        super().update(movement,tilemap)
         if self.rect().colliderect(self.main_game.player.rect()): 
             return True
+        return super().update(movement,tilemap)
+        
