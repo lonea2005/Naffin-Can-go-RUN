@@ -204,6 +204,7 @@ class Player(physics_entity):
             self.extra_attack = True
 
         self.harpoon_counter = 0
+        self.tutorial_jumping = 0
         
     
     def testing_stats(self):
@@ -219,6 +220,7 @@ class Player(physics_entity):
 
     def update(self, movement=(0,0),tilemap=None):
         super().update(movement,tilemap)
+        self.tutorial_jumping = max(0,self.tutorial_jumping-1)
         #if player is dashing, do not apply gravity
         if self.harpoon_counter > 0:
             self.harpoon_counter -= 1
@@ -291,6 +293,7 @@ class Player(physics_entity):
             return True
         return False
     def tutorial_jump(self):
+        self.tutorial_jumping = 60
         self.stop_jump_check = False
         self.main_game.sfx['jump'].play()
         self.velocity[1] = -3.2
@@ -299,7 +302,7 @@ class Player(physics_entity):
         self.set_action('jump')
         return True
     def stop_jump(self):
-        if self.velocity[1] < 0:
+        if self.velocity[1] < 0 and not self.tutorial_jumping:
             self.velocity[1] = min(0,self.velocity[1]+1.3) if not self.stop_jump_check else self.velocity[1]
             self.stop_jump_check = True
 
@@ -940,7 +943,7 @@ class obstacle(physics_entity):
     def update(self, movement=(0, 0), tilemap=None):
         super().update(movement, tilemap)
         if self.check_player_pos()[0] > 500:
-            if self.type == 'trigger':
+            if self.type == 'trigger' or self.type == 'cut_trigger':
                 #self.main_game.tutorial += 1
                 pass
             return True
@@ -1028,6 +1031,22 @@ class Tutorial_trigger(obstacle):
         self.velocity = velocity
         self.anim_offset = [0,0]
         self.type = 'trigger'        
+
+    def update(self,movement=(0,0),tilemap=None):
+        self.duration -= 1
+        if self.duration == 0:
+            return True
+        if self.rect().colliderect(self.main_game.player.rect()): 
+            return True
+        return super().update(movement,tilemap)
+    
+class Cutscene_trigger(obstacle):
+    def __init__(self,main_game,position,size,velocity=[0,0],duration=0):
+        super().__init__(main_game,'cut_trigger',position,size)
+        self.duration = duration
+        self.velocity = velocity
+        self.anim_offset = [0,0]
+        self.type = 'cut_trigger'        
 
     def update(self,movement=(0,0),tilemap=None):
         self.duration -= 1

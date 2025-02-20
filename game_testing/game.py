@@ -3,7 +3,7 @@ import sys
 import os
 import random
 import math
-from script.entity import Player, Enemy, Beam, Box, Scrap, Tutorial_trigger
+from script.entity import Player, Enemy, Beam, Box, Scrap, Tutorial_trigger, Cutscene_trigger
 from script.utils import load_image,load_white_image
 from script.utils import load_tile,load_trans_tile
 from script.utils import load_fix_tile
@@ -37,11 +37,16 @@ class main_game:
         
         self.title_select_cd = 0
         self.setting_select_cd = 0
+        self.craft_selet_cd = 0
 
         self.title_select = [False,False,False]
         self.setting_select = [[True,False],[False,False],[False,False],[False,False]]
         self.setting_index = [1,1]
         self.text_counter = 0
+
+        self.craft_select = [[True,False,False],[False,False,False],[False,False,False]]
+        self.craft_select_index = [1,1]
+        self.can_craft = [[False,False,False],[False,False,False],[False,False,False]]
 
         self.cpos_list = [[[673,600],[688,420],[658,470],[658,420],[550,170]]
                         ]
@@ -49,7 +54,7 @@ class main_game:
                         ]
         self.tpos_list = [[[543,400],[518,220],[458,270],[458,220],[750,170]]
                         ]
-        self.text_list = [["Press UP to jump","Hold UP to jump higher","Touch scraps to collect them","Jump to pass the platform","Press DOWN to fast fall"]
+        self.tutorial_text_list = [["Press UP to jump","Hold UP to jump higher","Touch scraps to collect them","Jump to pass the platform","Press DOWN to fast fall"]
                         ]
 
         self.assets = {
@@ -94,6 +99,7 @@ class main_game:
             "scrap/idle" : Animation(load_trans_images("entities/scrap"),duration=5,loop=True),
             "box/idle" : Animation(load_scaled_images("entities/box",2),duration=5,loop=True),
             "trigger/idle" : Animation(load_trans_images("entities/trigger"),duration=5,loop=True),
+            "cut_trigger/idle" : Animation(load_trans_images("entities/trigger"),duration=5,loop=True),
 
             "player/idle" : Animation(load_trans_images("entities/player/idle"),duration=10,loop=True),
             "player/run" : Animation(load_trans_images("entities/player/run"),duration=10,loop=True),
@@ -170,6 +176,7 @@ class main_game:
         self.pause = False
         self.tutorial = 0
         self.tutorial_pause = False
+        self.level_end = False
         self.pause_select = 0
         self.pause_select_cd = 0
         self.battle_count_down = 0
@@ -200,7 +207,7 @@ class main_game:
             self.fire_spawners.append(pygame.Rect(4+fire.pos[0], 4+fire.pos[1], 23, 13))
 
         self.enemy_spawners = []
-        for spawner in self.tilemap.extract([('spawners',0),('spawners',1),('spawners',2),('spawners',3),('spawners',4),('spawners',5)],keep=False):
+        for spawner in self.tilemap.extract([('spawners',0),('spawners',1),('spawners',2),('spawners',3),('spawners',4),('spawners',5),('spawners',6)],keep=False):
             if spawner.variant == 0:
                 self.player.position = spawner.pos #player start position
             elif spawner.variant == 1:
@@ -213,6 +220,8 @@ class main_game:
                 self.enemy_spawners.append(Scrap(self,spawner.pos,(8,8),duration=-1))
             elif spawner.variant == 5:
                 self.enemy_spawners.append(Tutorial_trigger(self,spawner.pos,(20,144),duration=-1))
+            elif spawner.variant == 6:
+                self.enemy_spawners.append(Cutscene_trigger(self,spawner.pos,(20,144),duration=-1))
 
 
         if self.level == 0:
@@ -231,7 +240,19 @@ class main_game:
                 pygame.mixer.music.load("game_testing/data/sfx/music_0.wav")
                 pygame.mixer.music.set_volume(self.bgm_factor/5*0.2)
                 pygame.mixer.music.play(-1)
+        if self.level == -1:
+            if new_level:
+                self.in_cutscene = True
+                self.text_list = ["我回來了!","zzz...zzz...","門番又在偷懶了","安靜的從旁邊溜進去......","zzz......!","有入侵者！？"]
+                self.order_list = [True,False,True,True,False,False]
+                self.battle_count_down = 60
+                '''
+                pygame.mixer.music.load("game_testing/data/sfx/music_1.wav")
+                pygame.mixer.music.set_volume(0.2)
+                pygame.mixer.music.play(-1)
+                '''
         if self.level == 0:
+            self.min_max_camera = [0,3500]
             if new_level:
                 self.in_cutscene = True
                 self.text_list = ["我回來了!","zzz...zzz...","門番又在偷懶了","安靜的從旁邊溜進去......","zzz......!","有入侵者！？"]
@@ -243,6 +264,8 @@ class main_game:
                 pygame.mixer.music.play(-1)
                 '''
 
+        if new_level:
+            self.intro = True
             
         elif self.level == 1:
             if new_level:
@@ -346,6 +369,7 @@ class main_game:
                     self.transition += 1
                     if self.transition > 30:
                         self.level += 1
+                        self.craft_menu()
                         self.load_level()
 
             if self.dead > 0:
@@ -380,6 +404,10 @@ class main_game:
                     if kill and enemy.type == "trigger":
                         self.enemy_spawners.remove(enemy)
                         self.tutorial_pause = True
+                    elif kill and enemy.type == "cut_trigger":
+                        self.enemy_spawners.remove(enemy)
+                        self.level_end = True
+                        self.end_cutscene()
                     elif kill and enemy.type == "boss":
                         self.projectiles=[] 
                         self.special_projectiles=[]
@@ -529,11 +557,11 @@ class main_game:
                             self.movements[0] = True
                         if event.key == pygame.K_RIGHT:
                             self.movements[1] = True
-                        if event.key == pygame.K_j:
+                        if event.key == pygame.K_j or event.key == pygame.K_UP:
                             self.player.jump()
                         if event.key == pygame.K_i:
                             self.player.harpoon()
-                        if event.key == pygame.K_k:
+                        if event.key == pygame.K_k or event.key == pygame.K_DOWN:
                             self.player.fast_fall()
                         if event.key == pygame.K_SPACE:
                             self.player.dash()
@@ -548,15 +576,12 @@ class main_game:
                             self.movements[0] = False
                         if event.key == pygame.K_RIGHT:
                             self.movements[1] = False
-                        if event.key == pygame.K_j:
+                        if event.key == pygame.K_j  or event.key == pygame.K_UP:
                             self.player.stop_jump()
 
                 #player keeps move right
-                if self.player.harpoon_counter < 1920 and self.render_camera[0] < 2700:
+                if self.player.harpoon_counter < 1920 and not self.level_end:
                     self.movements[1] = True
-                elif self.render_camera[0] == 2700:
-                    self.movements[1] = False
-                    self.tutorial_cutscene()
     
 
                 self.screen_shake_timer = max(0,self.screen_shake_timer-1)
@@ -675,7 +700,7 @@ class main_game:
                 self.screen.blit(pygame.transform.scale(self.display, (2*SCREEN_WIDTH, 2*SCREEN_HEIGHT)), (0,0)) 
                 self.screen.blit(pause_screen, (0, 0))
                 text_pos = self.tpos_list[self.level+1][self.tutorial]
-                text = self.text_list[self.level+1][self.tutorial]
+                text = self.tutorial_text_list[self.level+1][self.tutorial]
                 text_font = self.assets["font"].render(text, True, (0,200,255))
                 self.screen.blit(text_font, text_pos)
                 self.temp_screen = self.screen.copy()
@@ -720,6 +745,9 @@ class main_game:
                                 pygame.mixer.music.load("game_testing/data/sfx/music_1.wav")
                                 pygame.mixer.music.set_volume(self.bgm_factor/5*0.2)
                                 pygame.mixer.music.play(-1)
+                                if not self.intro :
+                                    self.win = 1
+                                self.intro = False
                    
             if self.battle_count_down > 0 and not self.in_cutscene:
                 self.battle_count_down -= 1
@@ -742,6 +770,13 @@ class main_game:
         self.in_cutscene = True
         self.text_list = ["原來是小惡魔啊，還以為是入侵者呢（呵欠","......zzz...zzz","竟然睡回去了......","算了，趕快進屋吧"]
         self.order_list = [False,False,True,True]
+
+    def end_cutscene(self):
+        self.movements = [False,False]
+        if self.level == -1:
+            self.tutorial_cutscene()
+        else:
+            pass
 
     def tutorial_cutscene(self):
         self.in_cutscene = True
@@ -779,13 +814,43 @@ class main_game:
                     pygame.quit()
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_SPACE:
+                        for i in range(60):
+                            decrease_light = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+                            decrease_light.fill((0, 0, 0, 10))  # RGBA: (0, 0, 0, 128) for half transparency
+                            self.screen.blit(decrease_light, (0, 0))
+                            pygame.mixer.music.set_volume(self.bgm_factor/5*0.3*i/60)
+                            self.clock.tick(60)
+                            self.screen.blit(self.display_brightness, (0, 0))
+                            pygame.display.flip()
                         self.level = -1
                         self.load_level()
                         self.run_game()
                         pygame.mixer.music.load("game_testing/data/sfx/Raise_the_Flag_of_Cheating.wav")
                         pygame.mixer.music.set_volume(self.bgm_factor/5*0.3)
                         pygame.mixer.music.play(-1)
-
+                    if event.key == pygame.K_e:
+                        self.run_setting()
+                if event.type == pygame.JOYBUTTONDOWN:
+                    if event.button == 0 and self.title_select[0]:  
+                        for i in range(100):
+                            decrease_light = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA).copy()
+                            decrease_light.fill((0, 0, 0, 5))  # RGBA: (0, 0, 0, 128) for half transparency
+                            self.screen.blit(decrease_light, (0, 0))
+                            pygame.mixer.music.set_volume(self.bgm_factor/5*0.3*(60-i)/60)
+                            self.clock.tick(60)
+                            if not i:
+                                self.screen.blit(self.display_brightness, (0, 0))
+                            pygame.display.flip()
+                        self.load_level()
+                        self.run_game()
+                        pygame.mixer.music.load("game_testing/data/sfx/Raise_the_Flag_of_Cheating.wav")
+                        pygame.mixer.music.set_volume(self.bgm_factor/5*0.3)
+                        pygame.mixer.music.play(-1)
+                    elif event.button == 0 and self.title_select[2]:
+                        self.run_setting()
+                    elif event.button == 0 and self.title_select[1]:
+                        pygame.quit()
+                if event.type == pygame.JOYAXISMOTION:
                     #THERE IS A BUG WITH COUNTING ISSUE WHICH RESULT IN THE ORDER BEING 1 3 2, DO NOT TRY TO FIX IT
                     if event.axis == 1:
                         if event.value < -0.5 and self.title_select_cd == 0:
@@ -887,6 +952,93 @@ class main_game:
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_SPACE:
                         return
+                    if event.key == pygame.K_RETURN:
+                        if self.setting_select[3][0] or self.setting_select[3][1]:
+                            return
+                        elif self.setting_select[0][0]:
+                            self.bgm_factor = max(0,self.bgm_factor-1)
+                        elif self.setting_select[0][1]:
+                            self.bgm_factor = min(10,self.bgm_factor+1)
+                        elif self.setting_select[1][0]:
+                            self.sfx_factor = max(0,self.sfx_factor-1)
+                        elif self.setting_select[1][1]:
+                            self.sfx_factor = min(10,self.sfx_factor+1)
+                        elif self.setting_select[2][0]:
+                            self.brightness = max(0,self.brightness-1)
+                        elif self.setting_select[2][1]:
+                            self.brightness = min(3,self.brightness+1) 
+                    if event.key == pygame.K_LEFT:
+                        if self.setting_index[0]==0 and self.setting_index[1]==0:
+                            self.setting_index=[1,1]
+                        elif self.setting_select_cd == 0:
+                            self.setting_index[1] = max(self.setting_index[1]-1,1)
+                            self.setting_select=[[False,False],[False,False],[False,False],[False,False]]
+                            self.setting_select[self.setting_index[0]-1][self.setting_index[1]-1] = True
+                            self.setting_select_cd = 10
+                    if event.key == pygame.K_RIGHT:
+                        if self.setting_index[0]==0 and self.setting_index[1]==0:
+                            self.setting_index=[1,1]
+                        elif self.setting_select_cd == 0:
+                            self.setting_index[1] = min(self.setting_index[1]+1,2)
+                            self.setting_select=[[False,False],[False,False],[False,False],[False,False]]
+                            self.setting_select[self.setting_index[0]-1][self.setting_index[1]-1] = True
+                            self.setting_select_cd = 10
+                    if event.key == pygame.K_UP:
+                        if self.setting_index[0]==0 and self.setting_index[1]==0:
+                            self.setting_index=[1,1]
+                        elif self.setting_select_cd == 0:
+                            self.setting_index[0] = max(self.setting_index[0]-1,1)      
+                            self.setting_select=[[False,False],[False,False],[False,False],[False,False]]
+                            self.setting_select[self.setting_index[0]-1][self.setting_index[1]-1] = True
+                            self.setting_select_cd = 10
+                    if event.key == pygame.K_DOWN:
+                        if self.setting_index[0]==0 and self.setting_index[1]==0:
+                            self.setting_index=[1,1]
+                        elif self.setting_select_cd == 0:
+                            self.setting_index[0] = min(self.setting_index[0]+1,4)
+                            self.setting_select=[[False,False],[False,False],[False,False],[False,False]]
+                            self.setting_select[self.setting_index[0]-1][self.setting_index[1]-1] = True
+                            self.setting_select_cd = 10
+
+                if event.type == pygame.JOYBUTTONDOWN:
+                    if event.button == 0:
+                        if self.setting_select[3][0] or self.setting_select[3][1]:
+                            return
+                        elif self.setting_select[0][0]:
+                            self.bgm_factor = max(0,self.bgm_factor-1)
+                        elif self.setting_select[0][1]:
+                            self.bgm_factor = min(10,self.bgm_factor+1)
+                        elif self.setting_select[1][0]:
+                            self.sfx_factor = max(0,self.sfx_factor-1)
+                        elif self.setting_select[1][1]:
+                            self.sfx_factor = min(10,self.sfx_factor+1)
+                        elif self.setting_select[2][0]:
+                            self.brightness = max(0,self.brightness-1)
+                        elif self.setting_select[2][1]:
+                            self.brightness = min(3,self.brightness+1) 
+                if event.type == pygame.JOYAXISMOTION:
+                    if event.axis == 1 and self.setting_select_cd == 0:
+                        if self.setting_index[0]==0 and self.setting_index[1]==0:
+                            self.setting_index=[1,1]
+                        elif event.value < -0.5 and self.setting_select_cd == 0:
+                            self.setting_index[0] = max(self.setting_index[0]-1,1)
+                        elif event.value > 0.5 and self.setting_select_cd == 0:
+                            self.setting_index[0] = min(self.setting_index[0]+1,4)
+                        if abs(event.value) > 0.5:
+                            self.setting_select=[[False,False],[False,False],[False,False],[False,False]]
+                            self.setting_select[self.setting_index[0]-1][self.setting_index[1]-1] = True
+                            self.setting_select_cd = 10
+                    if event.axis == 0 and self.setting_select_cd == 0:
+                        if self.setting_index[0]==0 and self.setting_index[1]==0:
+                            self.setting_index=[1,1]
+                        elif event.value < -0.5 and self.setting_select_cd == 0:
+                            self.setting_index[1] = max(self.setting_index[1]-1,1)
+                        elif event.value > 0.5 and self.setting_select_cd == 0:
+                            self.setting_index[1] = min(self.setting_index[1]+1,2)
+                        if abs(event.value) > 0.5:
+                            self.setting_select=[[False,False],[False,False],[False,False],[False,False]]
+                            self.setting_select[self.setting_index[0]-1][self.setting_index[1]-1] = True
+                            self.setting_select_cd = 10
             #setting
             pygame.mixer.music.set_volume(self.bgm_factor/5*0.3)
             self.sfx["ambience"].set_volume(0.2*self.sfx_factor/5)
@@ -900,6 +1052,151 @@ class main_game:
             self.display_brightness.fill((0, 0, 0, 40*(3-self.brightness)))  # RGBA: (0, 0, 0, 128) for half transparency
             self.screen.blit(self.display_brightness, (0, 0))
             pygame.display.flip()
+    
+    def craft_menu(self):
+        self.setting_select = [[True,False],[False,False],[False,False],[False,False]]
+        self.setting_index = [1,1]
+        decrease_light = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        decrease_light.fill((0, 0, 0, 128))  # RGBA: (0, 0, 0, 128) for half transparency
+        self.screen.blit(decrease_light, (0, 0))
+
+        self.temp_screen = self.screen.copy()
+
+        while True:
+            self.craft_select_cd = max(0,self.craft_select_cd-1)
+            self.screen.blit(self.temp_screen, (0,0))
+            #blit setting_bg in the middle of the screen
+            #self.screen.blit(pygame.transform.scale(self.assets["setting_screen"], (2*SCREEN_WIDTH/3, 2*SCREEN_HEIGHT/3)),(SCREEN_WIDTH/6, SCREEN_HEIGHT/6))
+            self.screen.blit(pygame.transform.scale(self.assets["craft_screen"], (7*SCREEN_WIDTH/8, 12*SCREEN_HEIGHT/8)),(SCREEN_WIDTH/16-40, SCREEN_HEIGHT/16-300))
+            
+            if self.setting_select[0][0]:
+                self.screen.blit(pygame.transform.scale(self.assets["tri_left_selected"], (50,50)),(SCREEN_WIDTH/3+200, SCREEN_HEIGHT/6+100))
+            else:
+                self.screen.blit(pygame.transform.scale(self.assets["tri_left"], (50,50)),(SCREEN_WIDTH/3+200, SCREEN_HEIGHT/6+100))
+            if self.setting_select[0][1]:
+                self.screen.blit(pygame.transform.scale(self.assets["tri_right_selected"], (50,50)),(SCREEN_WIDTH/3+450, SCREEN_HEIGHT/6+100))
+            else:
+                self.screen.blit(pygame.transform.scale(self.assets["tri_right"], (50,50)),(SCREEN_WIDTH/3+450, SCREEN_HEIGHT/6+100))
+            if self.setting_select[1][0]:
+                self.screen.blit(pygame.transform.scale(self.assets["tri_left_selected"], (50,50)),(SCREEN_WIDTH/3+200, SCREEN_HEIGHT/6+250))
+            else:
+                self.screen.blit(pygame.transform.scale(self.assets["tri_left"], (50,50)),(SCREEN_WIDTH/3+200, SCREEN_HEIGHT/6+250))
+            if self.setting_select[1][1]:
+                self.screen.blit(pygame.transform.scale(self.assets["tri_right_selected"], (50,50)),(SCREEN_WIDTH/3+450, SCREEN_HEIGHT/6+250))
+            else:
+                self.screen.blit(pygame.transform.scale(self.assets["tri_right"], (50,50)),(SCREEN_WIDTH/3+450, SCREEN_HEIGHT/6+250))
+            if self.setting_select[2][0]:
+                self.screen.blit(pygame.transform.scale(self.assets["tri_left_selected"], (50,50)),(SCREEN_WIDTH/3+200, SCREEN_HEIGHT/6+400))
+            else:
+                self.screen.blit(pygame.transform.scale(self.assets["tri_left"], (50,50)),(SCREEN_WIDTH/3+200, SCREEN_HEIGHT/6+400))
+            if self.setting_select[2][1]:
+                self.screen.blit(pygame.transform.scale(self.assets["tri_right_selected"], (50,50)),(SCREEN_WIDTH/3+450, SCREEN_HEIGHT/6+400))
+            else:
+                self.screen.blit(pygame.transform.scale(self.assets["tri_right"], (50,50)),(SCREEN_WIDTH/3+450, SCREEN_HEIGHT/6+400))
+            if self.setting_select[3][0] or self.setting_select[3][1]:
+                self.screen.blit(self.assets["pressed_menu"],(SCREEN_WIDTH/2-200, 4*SCREEN_HEIGHT/6-100))
+            else:
+                self.screen.blit(self.assets["menu"],(SCREEN_WIDTH/2-200, 4*SCREEN_HEIGHT/6-100))
+            
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    return
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        return
+                    if event.key == pygame.K_RETURN:
+                        if True in self.setting_select[2]:
+                            return
+                        elif self.craft_select[0][0]:
+                            self.craft("can")
+                        elif self.craft_select[0][1]:
+                            #craft dash
+                            self.craft("dash")
+                            
+                        elif self.craft_select[0][2]:
+                            #craft shield
+                            self.craft("shield")
+                            
+                        elif self.craft_select[1][0]:
+                            #craft hook
+                            self.craft("hook")
+                            
+                        elif self.craft_select[1][1]:
+                            #craft sord
+                            self.craft("sword")
+                            
+                        elif self.craft_select[1][2]:
+                            #craft harpoon
+                            self.craft("harpoon")
+                            
+                    if event.key == pygame.K_LEFT:
+                        if self.craft_index[0]==0 and self.craft_index[1]==0:
+                            self.craft_index=[1,1]
+                        elif self.craft_select_cd == 0:
+                            self.craft_index[1] = max(self.craft_index[1]-1,1)
+                            self.craft_select=[[True,False,False],[False,False,False],[False,False,False]]
+                            self.craft_select[self.craft_index[0]-1][self.craft_index[1]-1] = True
+                            self.craft_select_cd = 10
+                    if event.key == pygame.K_RIGHT:
+                        if self.craft_index[0]==0 and self.craft_index[1]==0:
+                            self.craft_index=[1,1]
+                        elif self.craft_select_cd == 0:
+                            self.craft_index[1] = min(self.craft_index[1]+1,3)
+                            self.craft_select=[[True,False,False],[False,False,False],[False,False,False]]
+                            self.craft_select[self.craft_index[0]-1][self.craft_index[1]-1] = True
+                            self.craft_select_cd = 10
+                    if event.key == pygame.K_UP:
+                        if self.craft_index[0]==0 and self.craft_index[1]==0:
+                            self.craft_index=[1,1]
+                        elif self.craft_select_cd == 0:
+                            self.craft_index[0] = max(self.craft_index[0]-1,1)      
+                            self.craft_select=[[True,False,False],[False,False,False],[False,False,False]]
+                            self.craft_select[self.craft_index[0]-1][self.craft_index[1]-1] = True
+                            self.craft_select_cd = 10
+                    if event.key == pygame.K_DOWN:
+                        if self.craft_index[0]==0 and self.craft_index[1]==0:
+                            self.craft_index=[1,1]
+                        elif self.craft_select_cd == 0:
+                            self.craft_index[0] = min(self.craft_index[0]+1,3)
+                            self.craft_select=[[True,False,False],[False,False,False],[False,False,False]]
+                            self.craft_select[self.craft_index[0]-1][self.craft_index[1]-1] = True
+                            self.craft_select_cd = 10
+
+            #setting
+            pygame.mixer.music.set_volume(self.bgm_factor/5*0.3)
+            self.sfx["ambience"].set_volume(0.2*self.sfx_factor/5)
+            self.sfx["shoot"].set_volume(0.5*self.sfx_factor/5)
+            self.sfx["jump"].set_volume(0.7*self.sfx_factor/5)
+            self.sfx["dash"].set_volume(0.7*self.sfx_factor/5)
+            self.sfx["swing"].set_volume(0.7*self.sfx_factor/5)
+            self.sfx["hit"].set_volume(0.8*self.sfx_factor/5) 
+            self.sfx["got_hit"].set_volume(1*self.sfx_factor/5)
+            self.clock.tick(FPS)
+            self.display_brightness.fill((0, 0, 0, 40*(3-self.brightness)))  # RGBA: (0, 0, 0, 128) for half transparency
+            self.screen.blit(self.display_brightness, (0, 0))
+            pygame.display.flip()
+
+    def craft(self,item="can",cost = 10):
+        if item == "can" and self.can_craft[0][0]:
+            self.HP_can += 1
+        elif item == "dash" and self.can_craft[0][1]:
+            self.tools.append("dash")
+            self.tools.remove("dash_material")
+        elif item == "shield" and self.can_craft[0][2]:
+            self.tools.append("shield")
+            self.tools.remove("shield_material")
+        elif item == "hook" and self.can_craft[1][0]:
+            self.tools.append("hook")
+            self.tools.remove("hook_material")
+        elif item == "sword" and self.can_craft[1][1]:
+            self.tools.append("sword")
+            self.tools.remove("sword_material") 
+        elif item == "harpoon" and self.can_craft[1][2]:
+            self.tools.append("harpoon")
+            self.tools.remove("harpoon_material")
+        else:
+            return
 
 if __name__ == "__main__":
     main_game().run_main_menu()
