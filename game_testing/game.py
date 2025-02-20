@@ -81,7 +81,6 @@ class main_game:
             "head_2_shadow": load_trans_image("head/hong_shadow.png"),
             "music": load_trans_image("music.png"),
             "sun": load_trans_image("sun.png"),
-            "battle_start": load_trans_image("BattleStart.png"),
             "decor" : load_tile("tiles/decor"),
             "stone" : load_tile("tiles/stone"),
             "grass" : load_tile("tiles/grass"),
@@ -179,7 +178,6 @@ class main_game:
         self.level_end = False
         self.pause_select = 0
         self.pause_select_cd = 0
-        self.battle_count_down = 0
         self.movements = [False,False]
 
         self.player = Player(self, (100,100), (8,15) , HP = 5)
@@ -243,9 +241,8 @@ class main_game:
         if self.level == -1:
             if new_level:
                 self.in_cutscene = True
-                self.text_list = ["我回來了!","zzz...zzz...","門番又在偷懶了","安靜的從旁邊溜進去......","zzz......!","有入侵者！？"]
-                self.order_list = [True,False,True,True,False,False]
-                self.battle_count_down = 60
+                self.text_list = ["Finally...the day has come.","Today, me, Naffin the Can, will earn FREEDOM myself","Time to escape!"]
+                self.order_list = [True,True,True]
                 '''
                 pygame.mixer.music.load("game_testing/data/sfx/music_1.wav")
                 pygame.mixer.music.set_volume(0.2)
@@ -257,7 +254,6 @@ class main_game:
                 self.in_cutscene = True
                 self.text_list = ["我回來了!","zzz...zzz...","門番又在偷懶了","安靜的從旁邊溜進去......","zzz......!","有入侵者！？"]
                 self.order_list = [True,False,True,True,False,False]
-                self.battle_count_down = 60
                 '''
                 pygame.mixer.music.load("game_testing/data/sfx/music_1.wav")
                 pygame.mixer.music.set_volume(0.2)
@@ -377,6 +373,8 @@ class main_game:
                 if self.dead >=10:
                     self.transition = min(30,self.transition+1)
                 if self.dead > 40:
+                    if self.level > -1:
+                        self.craft_menu()
                     self.load_level(False)
 
             self.camera[0] += (self.player.rect().centerx - self.display.get_width()/4 -self.camera[0])/20 #camera follow player x
@@ -748,20 +746,7 @@ class main_game:
                                 if not self.intro :
                                     self.win = 1
                                 self.intro = False
-                   
-            if self.battle_count_down > 0 and not self.in_cutscene:
-                self.battle_count_down -= 1
-                #blit battle_start at the middle of the screen
-                #the img will first scale up and then shrink to its original size, and than fade out as the countdown goes down
-                if self.battle_count_down > 45:
-                    img = pygame.transform.scale(self.assets["battle_start"], (self.assets["battle_start"].get_width()*1.5*(self.battle_count_down)//45, self.assets["battle_start"].get_height()*1.5*(self.battle_count_down)//45))
-                    self.screen.blit(img, (HALF_SCREEN_WIDTH/2, HALF_SCREEN_HEIGHT/2-100))
-                elif self.battle_count_down > 0:
-                    img = pygame.transform.scale(self.assets["battle_start"], (self.assets["battle_start"].get_width()*1.5, self.assets["battle_start"].get_height()*1.5))
-                    img.set_alpha(255*(self.battle_count_down)/45)
-                    self.screen.blit(img, (HALF_SCREEN_WIDTH/2, HALF_SCREEN_HEIGHT/2-100))
-                else:
-                    self.battle_count_down = 0
+
             self.screen.blit(self.display_brightness, (0, 0))
             pygame.display.update()
             self.clock.tick(FPS)
@@ -780,7 +765,7 @@ class main_game:
 
     def tutorial_cutscene(self):
         self.in_cutscene = True
-        self.text_list = ["原來是小惡魔啊，還以為是入侵者呢（呵欠","......zzz...zzz","竟然睡回去了......","算了，趕快進屋吧"]
+        self.text_list = ["Hmm... a lighter?","This might help me with the escape","*Obtain Lighter*","*Unlocked Craft Menu*"]
         self.order_list = [True,True,True,True]
 
     def run_main_menu(self):
@@ -1077,23 +1062,23 @@ class main_game:
                 self.screen.blit(pygame.transform.scale(self.assets["tri_right_selected"], (50,50)),(SCREEN_WIDTH/3+450, SCREEN_HEIGHT/6+100))
             else:
                 self.screen.blit(pygame.transform.scale(self.assets["tri_right"], (50,50)),(SCREEN_WIDTH/3+450, SCREEN_HEIGHT/6+100))
-            if self.setting_select[1][0]:
+            if self.setting_select[0][2]:
                 self.screen.blit(pygame.transform.scale(self.assets["tri_left_selected"], (50,50)),(SCREEN_WIDTH/3+200, SCREEN_HEIGHT/6+250))
             else:
                 self.screen.blit(pygame.transform.scale(self.assets["tri_left"], (50,50)),(SCREEN_WIDTH/3+200, SCREEN_HEIGHT/6+250))
-            if self.setting_select[1][1]:
+            if self.setting_select[1][0]:
                 self.screen.blit(pygame.transform.scale(self.assets["tri_right_selected"], (50,50)),(SCREEN_WIDTH/3+450, SCREEN_HEIGHT/6+250))
             else:
                 self.screen.blit(pygame.transform.scale(self.assets["tri_right"], (50,50)),(SCREEN_WIDTH/3+450, SCREEN_HEIGHT/6+250))
-            if self.setting_select[2][0]:
+            if self.setting_select[1][1]:
                 self.screen.blit(pygame.transform.scale(self.assets["tri_left_selected"], (50,50)),(SCREEN_WIDTH/3+200, SCREEN_HEIGHT/6+400))
             else:
                 self.screen.blit(pygame.transform.scale(self.assets["tri_left"], (50,50)),(SCREEN_WIDTH/3+200, SCREEN_HEIGHT/6+400))
-            if self.setting_select[2][1]:
+            if self.setting_select[1][2]:
                 self.screen.blit(pygame.transform.scale(self.assets["tri_right_selected"], (50,50)),(SCREEN_WIDTH/3+450, SCREEN_HEIGHT/6+400))
             else:
                 self.screen.blit(pygame.transform.scale(self.assets["tri_right"], (50,50)),(SCREEN_WIDTH/3+450, SCREEN_HEIGHT/6+400))
-            if self.setting_select[3][0] or self.setting_select[3][1]:
+            if True in self.setting_select[3]:
                 self.screen.blit(self.assets["pressed_menu"],(SCREEN_WIDTH/2-200, 4*SCREEN_HEIGHT/6-100))
             else:
                 self.screen.blit(self.assets["menu"],(SCREEN_WIDTH/2-200, 4*SCREEN_HEIGHT/6-100))
@@ -1103,8 +1088,6 @@ class main_game:
                     pygame.quit()
                     return
                 if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_SPACE:
-                        return
                     if event.key == pygame.K_RETURN:
                         if True in self.setting_select[2]:
                             return
