@@ -982,6 +982,23 @@ class Box(obstacle):
             self.main_game.player.take_damage(1,self.check_player_pos())
 
         return super().update(movement,tilemap)
+    
+class Spike(obstacle):
+    def __init__(self,main_game,position,size,velocity=[0,0],duration=0):
+        super().__init__(main_game,'spike',position,size)
+        self.duration = duration
+        self.velocity = velocity
+        self.anim_offset = [0,0]
+        self.type = 'spike'        
+
+    def update(self,movement=(0,0),tilemap=None):
+        self.duration -= 1
+        if self.duration == 0:
+            return True
+        if self.rect().colliderect(self.main_game.player.rect()) and abs(self.main_game.player.dashing) < 50: 
+            self.main_game.player.take_damage(1,self.check_player_pos())
+
+        return super().update(movement,tilemap)
         
 class pillar(obstacle):
     def __init__(self,main_game,position,size,velocity=[0,0],duration=0):
