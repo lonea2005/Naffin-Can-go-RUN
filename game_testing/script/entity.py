@@ -141,7 +141,7 @@ class physics_entity:
         #surface.blit(self.main_game.assets['player'],(self.position[0]-offset[0],self.position[1]-offset[1])    )
     def render_new(self,surface,offset=[0,0]):
         if self.entity_type == "player" or self.type == "boss":
-            surface.blit(pygame.transform.scale(pygame.transform.flip(self.anim.img(),not self.flip,False),(80,100)),(4*int(self.position[0]-offset[0]+self.anim_offset[0]),4*int(self.position[1]-offset[1]+self.anim_offset[1]+1))) #+1 for visually reg
+            surface.blit(pygame.transform.scale(pygame.transform.flip(self.anim.img(),self.flip,False),(80,100)),(4*int(self.position[0]-offset[0]+self.anim_offset[0]),4*int(self.position[1]-offset[1]+self.anim_offset[1]+1))) #+1 for visually reg
             #surface.blit(pygame.transform.scale(pygame.transform.flip(self.anim.img(),not self.flip,False),(56,70)),(4*int(self.position[0]-offset[0]+self.anim_offset[0]),4*int(self.position[1]-offset[1]+self.anim_offset[1]+1))) #+1 for visually reg
         elif self.entity_type == "dummy":
             surface.blit(pygame.transform.scale(pygame.transform.flip(self.anim.img(),not self.flip,False),(120,150)),(4*int(self.position[0]-offset[0]+self.anim_offset[0]),4*int(self.position[1]-offset[1]+self.anim_offset[1]+1)))
@@ -1038,9 +1038,6 @@ class Scrap(obstacle):
             return True
         return super().update(movement,tilemap)
         
-
-
-
 class Tutorial_trigger(obstacle):
     def __init__(self,main_game,position,size,velocity=[0,0],duration=0):
         super().__init__(main_game,'trigger',position,size)
@@ -1057,6 +1054,23 @@ class Tutorial_trigger(obstacle):
             return True
         return super().update(movement,tilemap)
     
+class Knife(obstacle):
+    def __init__(self,main_game,position,size,velocity=[0,0],duration=0):
+        super().__init__(main_game,'trigger',position,size)
+        self.duration = duration
+        self.velocity = velocity
+        self.anim_offset = [0,0]
+        self.type = 'knife'
+
+    def update(self,movement=(0,0),tilemap=None):
+        self.duration -= 1
+        if self.duration == 0:
+            return True
+        if abs(self.check_player_pos()[0]) <= 300:
+            self.main_game.projectiles.append([self.position,-2,1,"knife"])
+            return True
+        return super().update(movement,tilemap)
+
 class Cutscene_trigger(obstacle):
     def __init__(self,main_game,position,size,velocity=[0,0],duration=0):
         super().__init__(main_game,'cut_trigger',position,size)

@@ -1,9 +1,10 @@
+#FFEDC1
 import pygame
 import sys
 import os
 import random
 import math
-from script.entity import Player, Enemy, Beam, Box, Scrap, Tutorial_trigger, Cutscene_trigger, Spike
+from script.entity import Player, Enemy, Beam, Box, Scrap, Tutorial_trigger, Cutscene_trigger, Spike, Knife
 from script.utils import load_image,load_white_image
 from script.utils import load_tile,load_trans_tile
 from script.utils import load_fix_tile
@@ -48,11 +49,11 @@ class main_game:
         self.craft_index = [1,1]
         self.can_craft = [False,False,False,False,False,False]
 
-        self.cpos_list = [[[673,600],[688,420],[658,470],[658,420],[550,170]]
+        self.cpos_list = [[[673,600],[688,420],[658,470],[658,420],[550,210]]
                         ]
         self.crad_list= [[100,100,120,100,100]
                         ]
-        self.tpos_list = [[[543,400],[518,220],[458,270],[458,220],[750,170]]
+        self.tpos_list = [[[543,400],[518,220],[458,270],[458,220],[750,210]]
                         ]
         self.tutorial_text_list = [["Press UP to jump","Hold UP to jump higher","Touch scraps to collect them","Jump to pass the platform","Press DOWN to fast fall"]
                         ]
@@ -60,6 +61,7 @@ class main_game:
         self.assets = {
             "font": pygame.font.Font("game_testing/data/font/LXGWWenKaiMonoTC-Bold.ttf", 36),
             "font_setting": pygame.font.Font("game_testing/data/font/LXGWWenKaiMonoTC-Bold.ttf", 50),
+            "pixel_font": pygame.font.Font("game_testing/data/font/pixel.otf", 70),
             "small_font": pygame.font.Font("game_testing/data/font/LXGWWenKaiMonoTC-Bold.ttf", 12),
             "title": load_trans_image("title.png"),
             "title_screen": load_trans_image("標題畫面.jpg"),
@@ -74,16 +76,17 @@ class main_game:
             "tri_left": pygame.transform.flip(load_trans_image("buttons/tri_1.png"),True,False),
             "tri_left_selected": pygame.transform.flip(load_trans_image("buttons/tri_2.png"),True,False),
             "setting_screen":load_trans_image("setting_board.png"),
+
             "craft_screen":load_trans_image("craft_board.png"),
-            "craftable":load_trans_image("buttons/craftable.png"),
+            "craftable":load_trans_scaled_image("buttons/can_select.png",0.2),
             "craftable_selected":load_trans_image("buttons/craftable_selected.png"),
-            "uncraftable":load_trans_image("buttons/uncraftable.png"),
+            "uncraftable":load_trans_scaled_image("buttons/can_not_select.png",0.2),
             "uncraftable_selected":load_trans_image("buttons/uncraftable_selected.png"),
 
             "craft_back":load_trans_scaled_image("buttons/item_back.png",2),
             "craft_back_locked":load_trans_scaled_image("buttons/item_locked.png",2),
-            "extra_can":load_trans_image("buttons/extra_can.png"), 
-            "scrap" : load_trans_scaled_image("entities/scrap/HP.png",5), 
+            "extra_can":load_trans_scaled_image("buttons/extra_can.png",0.1), 
+            "scrap" : pygame.transform.scale(load_trans_image("entities/scrap/scrap_1.png"),(130,160)), 
 
             "button_background": load_trans_image("buttons/bg.png"),
             "text_box": load_image("text_box.png"),
@@ -107,10 +110,11 @@ class main_game:
             "enemy/dash" : Animation(load_trans_images("entities/enemy/dash"),duration=4,loop=False),
 
             "beam/idle" : Animation(load_trans_images("entities/beam"),duration=5,loop=True),
-            "scrap/idle" : Animation(load_trans_images("entities/scrap"),duration=5,loop=True),
+            "scrap/idle" : Animation(load_scaled_images("entities/scrap",0.037),duration=5,loop=True),
             "box/idle" : Animation(load_scaled_images("entities/box",2),duration=5,loop=True),
             "spike/idle" : Animation(load_images("entities/spike"),duration=5,loop=True),
-            "trigger/idle" : Animation(load_trans_images("entities/trigger"),duration=5,loop=True),
+            "knife/idle" : Animation(load_images("entities/knife"),duration=5,loop=True),
+            "trigger/idle": Animation(load_trans_images("entities/trigger"),duration=5,loop=True),
             "cut_trigger/idle" : Animation(load_trans_images("entities/trigger"),duration=5,loop=True),
 
             "player/idle" : Animation(load_trans_images("entities/player/idle"),duration=10,loop=True),
@@ -122,7 +126,7 @@ class main_game:
             "particle/particle" : Animation(load_images("particles/particle"),duration=6,loop=False),
             "particle/slash" : Animation(load_trans_scaled_images("entities/slash",0.15),duration=4,loop=False),
             "particle/hp" : Animation(load_images("particles/hp"),duration=10,loop=False),
-            "projectile" : load_image("projectile.png"),
+            "projectile" : pygame.transform.flip(load_trans_image("knife.png"),True,False),
             "harpoon" : load_image("harpoon.png"),
             #"projectile" : pygame.transform.rotate(load_image("entities/fireball/0.png"),90),
             "fireball" : Animation(load_images("entities/fireball"),duration=10,loop=True),
@@ -219,7 +223,7 @@ class main_game:
             self.fire_spawners.append(pygame.Rect(4+fire.pos[0], 4+fire.pos[1], 23, 13))
 
         self.enemy_spawners = []
-        for spawner in self.tilemap.extract([('spawners',0),('spawners',1),('spawners',2),('spawners',3),('spawners',4),('spawners',5),('spawners',6),('spawners',7)],keep=False):
+        for spawner in self.tilemap.extract([('spawners',0),('spawners',1),('spawners',2),('spawners',3),('spawners',4),('spawners',5),('spawners',6),('spawners',7),('spawners',8)],keep=False):
             if spawner.variant == 0:
                 self.player.position = spawner.pos #player start position
             elif spawner.variant == 1:
@@ -236,6 +240,8 @@ class main_game:
                 self.enemy_spawners.append(Cutscene_trigger(self,spawner.pos,(20,144),duration=-1))
             elif spawner.variant == 7:
                 self.enemy_spawners.append(Spike(self,spawner.pos,(16,16),duration=-1))
+            elif spawner.variant == 8:
+                self.enemy_spawners.append(Knife(self,spawner.pos,(32,16),duration=-1))
 
 
         if self.level == 0:
@@ -265,7 +271,7 @@ class main_game:
                 pygame.mixer.music.play(-1)
                 '''
         if self.level == 0:
-            self.min_max_camera = [0,3500]
+            self.min_max_camera = [0,5000]
             if new_level:
                 self.in_cutscene = True
                 self.text_list = ["我回來了!","zzz...zzz...","門番又在偷懶了","安靜的從旁邊溜進去......","zzz......!","有入侵者！？"]
@@ -398,7 +404,6 @@ class main_game:
             self.camera[0] += (self.player.rect().centerx - self.display.get_width()/4 -self.camera[0])/20 #camera follow player x
             self.camera[0] = max(self.min_max_camera[0],self.camera[0])
             self.camera[0] = min(self.min_max_camera[1],self.camera[0])
-            #self.camera[1] += (self.player.rect().centery - self.display.get_height()/2 - self.camera[1])/20 #camera follow player y
             self.render_camera = [int(self.camera[0])+50, int(self.camera[1])]
 
             self.tilemap.render(self.display,offset=self.render_camera) #render background
@@ -492,8 +497,8 @@ class main_game:
                                 self.projectiles.remove(projectile)
                             except:
                                 pass
-                        elif abs(self.player.dashing) < 50:
-                            if self.player.rect().collidepoint(projectile[0]):
+                        else:
+                            if self.player.rect().collidepoint(projectile[0]) or self.player.rect().collidepoint([projectile[0][0],projectile[0][1]+8]) or self.player.rect().collidepoint([projectile[0][0],projectile[0][1]+16]):
                                 try:
                                     self.projectiles.remove(projectile)
                                 except:
@@ -688,7 +693,7 @@ class main_game:
                 tran_surf=pygame.Surface(self.display.get_size())
                 pygame.draw.circle(tran_surf,(255,255,255),(self.display.get_width()//4,self.display.get_height()//4),(30-abs(self.transition))*8)
                 tran_surf.set_colorkey((255,255,255))
-                self.display.blit(tran_surf,(0,0)) 
+                self.display.blit(tran_surf,(0,0))
                 self.screen.blit(pygame.transform.scale(self.display, (2*SCREEN_WIDTH, 2*SCREEN_HEIGHT)), (0,0)) 
 
 
@@ -1056,8 +1061,9 @@ class main_game:
             pygame.display.flip()
     
     def craft_menu(self):
-        self.setting_select = [[True,False],[False,False],[False,False],[False,False]]
-        self.setting_index = [1,1]
+        self.transition = -50
+        self.craft_select=[[True,False,False],[False,False,False],[False,False,False]]
+        self.craft_index = [1,1]
         decrease_light = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
         decrease_light.fill((0, 0, 0, 128))  # RGBA: (0, 0, 0, 128) for half transparency
         self.screen.blit(decrease_light, (0, 0))
@@ -1128,14 +1134,14 @@ class main_game:
                     cost = 0
                 extra_text = " (" + t + "/4 obtained)"
                 if self.can_craft[0]:
-                    self.screen.blit(self.assets["craftable_selected"],(0,170))
+                    self.screen.blit(self.assets["craftable_selected"],(-10,210))
                 else:
-                    self.screen.blit(self.assets["uncraftable_selected"],(0,170))
+                    self.screen.blit(self.assets["uncraftable_selected"],(-10,210))
             else:
                 if self.can_craft[0]:
-                    self.screen.blit(self.assets["craftable"],(0,170))
+                    self.screen.blit(self.assets["craftable"],(-10,210))
                 else:
-                    self.screen.blit(self.assets["uncraftable"],(0,170))
+                    self.screen.blit(self.assets["uncraftable"],(-10,210))
             if self.craft_select[0][1]:
                 if "dash" not in self.tools:
                     cost = 50 
@@ -1144,58 +1150,58 @@ class main_game:
                     cost = 0
                     extra_text = " Press SPACE to dash"
                 if self.can_craft[1]:
-                    self.screen.blit(self.assets["craftable_selected"],(450,170))
+                    self.screen.blit(self.assets["craftable_selected"],(445,210))
                 else:
-                    self.screen.blit(self.assets["uncraftable_selected"],(450,170))
+                    self.screen.blit(self.assets["uncraftable_selected"],(445,210))
             else:
                 if self.can_craft[1]:
-                    self.screen.blit(self.assets["craftable"],(450,170))
+                    self.screen.blit(self.assets["craftable"],(445,210))
                 else:
-                    self.screen.blit(self.assets["uncraftable"],(450,170))
+                    self.screen.blit(self.assets["uncraftable"],(445,210))
             if self.craft_select[0][2]:
                 cost = 50 if self.level >= 1 else 0
                 if self.can_craft[2]:
-                    self.screen.blit(self.assets["craftable_selected"],(900,170))
+                    self.screen.blit(self.assets["craftable_selected"],(900,210))
                 else:
-                    self.screen.blit(self.assets["uncraftable_selected"],(900,170))
+                    self.screen.blit(self.assets["uncraftable_selected"],(900,210))
             else:
                 if self.can_craft[2]:
-                    self.screen.blit(self.assets["craftable"],(900,170))
+                    self.screen.blit(self.assets["craftable"],(900,210))
                 else:
-                    self.screen.blit(self.assets["uncraftable"],(900,170))
+                    self.screen.blit(self.assets["uncraftable"],(900,210))
             if self.craft_select[1][0]:
                 cost = 70 if self.level >= 2 else 0
                 if self.can_craft[3]:
-                    self.screen.blit(self.assets["craftable_selected"],(0,580))
+                    self.screen.blit(self.assets["craftable_selected"],(-10,620))
                 else:
-                    self.screen.blit(self.assets["uncraftable_selected"],(0,580))
+                    self.screen.blit(self.assets["uncraftable_selected"],(-10,620))
             else:
                 if self.can_craft[3]:
-                    self.screen.blit(self.assets["craftable"],(0,580))
+                    self.screen.blit(self.assets["craftable"],(-10,620))
                 else:
-                    self.screen.blit(self.assets["uncraftable"],(0,580))
+                    self.screen.blit(self.assets["uncraftable"],(-10,620))
             if self.craft_select[1][1]:
                 cost = 70 if self.level >= 3 else 0
                 if self.can_craft[4]:
-                    self.screen.blit(self.assets["craftable_selected"],(450,580))
+                    self.screen.blit(self.assets["craftable_selected"],(445,620))
                 else:   
-                    self.screen.blit(self.assets["uncraftable_selected"],(450,580)) 
+                    self.screen.blit(self.assets["uncraftable_selected"],(445,620)) 
             else:
                 if self.can_craft[4]:
-                    self.screen.blit(self.assets["craftable"],(450,580))
+                    self.screen.blit(self.assets["craftable"],(445,620))
                 else:
-                    self.screen.blit(self.assets["uncraftable"],(450,580))
+                    self.screen.blit(self.assets["uncraftable"],(445,620))
             if self.craft_select[1][2]:
                 cost = 100  if self.level >= 4 else 0
                 if self.can_craft[5]:
-                    self.screen.blit(self.assets["craftable_selected"],(900,580))
+                    self.screen.blit(self.assets["craftable_selected"],(900,620))
                 else:
-                    self.screen.blit(self.assets["uncraftable_selected"],(900,580))
+                    self.screen.blit(self.assets["uncraftable_selected"],(900,620))
             else:
                 if self.can_craft[5]:
-                    self.screen.blit(self.assets["craftable"],(900,580))
+                    self.screen.blit(self.assets["craftable"],(900,620))
                 else:
-                    self.screen.blit(self.assets["uncraftable"],(900,580))
+                    self.screen.blit(self.assets["uncraftable"],(900,620))
             if True in self.craft_select[2]:
                 cost = 0
                 extra_text = " Enter next level"
@@ -1203,23 +1209,35 @@ class main_game:
             else:
                 self.screen.blit(self.assets["menu"],(900, 4*SCREEN_HEIGHT/6+50))
 
+            text_font = self.assets["pixel_font"].render("craft", True, (255,237,193))
+            self.screen.blit(text_font, (110, 335))
+            self.screen.blit(text_font, (567, 335))
+            self.screen.blit(text_font, (1025, 335))
+            self.screen.blit(text_font, (110, 745))
+            self.screen.blit(text_font, (567, 745))
+            self.screen.blit(text_font, (1025, 745))
+
+
+
             #buttom text
-            self.screen.blit(self.assets["scrap"],(0,830))
+            self.screen.blit(self.assets["scrap"],(0,810))
             #show text according to the variable "cost"
             if cost:
                 text = " x "+str(self.scrap) + " / "+str(cost) + " needed." + extra_text
             else:
-                text = " x "+str(self.scrap) + " |" + extra_text
+                text = " x "+str(self.scrap) + " |"   + extra_text
             text_font = self.assets["font_setting"].render(text, True, (255,255,255))
             self.screen.blit(text_font, (100, 855))
 
             self.screen.blit(self.assets["craft_back"],(68,50))
+            self.screen.blit(self.assets["extra_can"],(90,70))
             self.screen.blit(self.assets["craft_back"],(523,50))
 
             if self.level > 0:
                 self.screen.blit(self.assets["craft_back"],(978,50))
             else:
                 self.screen.blit(self.assets["craft_back_locked"],(978,50))
+
 
             if self.level > 1:
                 self.screen.blit(self.assets["craft_back"],(68,450))
@@ -1303,7 +1321,15 @@ class main_game:
             self.clock.tick(FPS)
             self.display_brightness.fill((0, 0, 0, 40*(3-self.brightness)))  # RGBA: (0, 0, 0, 128) for half transparency
             self.screen.blit(self.display_brightness, (0, 0))
+
+            self.transition = min(self.transition+1,0)
+            if self.transition:
+                tran_surf=pygame.Surface(self.screen.get_size())
+                pygame.draw.circle(tran_surf,(255,255,255),(self.screen.get_width()//2,self.screen.get_height()//2),(30-abs(self.transition))*24)
+                tran_surf.set_colorkey((255,255,255))
+                self.screen.blit(tran_surf,(0,0))
             pygame.display.flip()
+            
 
     def craft(self,item="can",cost = 10):
         if item == "can" and self.can_craft[0]:
