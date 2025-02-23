@@ -4,7 +4,7 @@ import sys
 import os
 import random
 import math
-from script.entity import Player, Enemy, Beam, Box, Scrap, Tutorial_trigger, Cutscene_trigger, Spike, Knife
+from script.entity import Player, Enemy, Beam, Box, Scrap, Tutorial_trigger, Cutscene_trigger, Spike, Knife, Hook_start, Hook_stop  ,Camera_trigger
 from script.utils import load_image,load_white_image
 from script.utils import load_tile,load_trans_tile
 from script.utils import load_fix_tile
@@ -49,19 +49,36 @@ class main_game:
         self.craft_index = [1,1]
         self.can_craft = [False,False,False,False,False,False]
 
-        self.cpos_list = [[[673,600],[688,420],[658,470],[658,420],[550,210]]
+        self.cpos_list = [[[673,600],[688,420],[658,470],[658,420],[550,210]],
+                            [[700,600],[588,320],[558,470]],
+                            [[700,600],[588,200]],
+                            [[270,350],[620,300],[695,340],[658,200],[700,600]],
+                            [[270,500]]
                         ]
-        self.crad_list= [[100,100,120,100,100]
+        self.crad_list= [[100,100,120,100,100],
+                            [200,200,200],
+                            [200,200],
+                            [100,200,100,200,200],
+                            [150]
                         ]
-        self.tpos_list = [[[543,400],[518,220],[458,270],[458,220],[750,210]]
+        self.tpos_list = [[[543,400],[518,220],[458,270],[458,220],[750,210]],
+                          [[543,300],[228,570],[358,200]],
+                          [[543,300],[335,470]],
+                            [[420,300],[405,570],[335,470],[335,470],[520,320]],
+                            [[500,300]],
                         ]
-        self.tutorial_text_list = [["Press UP to jump","Hold UP to jump higher","Touch scraps to collect them","Jump to pass the platform","Press DOWN to fast fall"]
+        self.tutorial_text_list = [["Press UP to jump","Hold UP to jump higher","Touch scraps to collect them","Jump to pass the platform","Press DOWN to fast fall"],
+                                   ["Press SPACE to dash","Press SPACE to dash, dashes has 1 sec cool down","Press SPACE to dash again"],
+                                   ["Press Z to attack the box","Fast fall to break the box"],
+                                   ["Press A to hook onto the gear","Press Z to attack the box","Press A to hook onto the gear","Hook again to change direction","Fast fall to leave earily"],
+                                   ["Press X to throw the Fork, 3 sec cool down"]
                         ]
 
         self.assets = {
             "font": pygame.font.Font("game_testing/data/font/LXGWWenKaiMonoTC-Bold.ttf", 36),
             "font_setting": pygame.font.Font("game_testing/data/font/LXGWWenKaiMonoTC-Bold.ttf", 50),
             "pixel_font": pygame.font.Font("game_testing/data/font/pixel.otf", 70),
+            "big_pixel_font": pygame.font.Font("game_testing/data/font/pixel.otf", 200),
             "small_font": pygame.font.Font("game_testing/data/font/LXGWWenKaiMonoTC-Bold.ttf", 12),
             "title": load_trans_image("title.png"),
             "title_screen": load_trans_image("標題畫面.jpg"),
@@ -79,18 +96,22 @@ class main_game:
 
             "craft_screen":load_trans_image("craft_board.png"),
             "craftable":load_trans_scaled_image("buttons/can_select.png",0.2),
-            "craftable_selected":load_trans_image("buttons/craftable_selected.png"),
+            "craftable_selected":load_trans_scaled_image("buttons/can_select_s.png",0.5),
             "uncraftable":load_trans_scaled_image("buttons/can_not_select.png",0.2),
-            "uncraftable_selected":load_trans_image("buttons/uncraftable_selected.png"),
+            "uncraftable_selected":load_trans_scaled_image("buttons/can_not_select_s.png",0.5),
 
             "craft_back":load_trans_scaled_image("buttons/item_back.png",2),
+            "crafted_back":load_trans_scaled_image("buttons/item_crafted.png",2),
             "craft_back_locked":load_trans_scaled_image("buttons/item_locked.png",2),
-            "extra_can":load_trans_scaled_image("buttons/extra_can.png",0.1), 
+            "extra_can":load_trans_scaled_image("buttons/extra_can.png",0.1),
+            "sword":pygame.transform.rotate(load_trans_scaled_image("sword.png",0.4),90),
+            "dash":load_trans_scaled_image("fi.png",0.37), 
+            "hook":load_trans_scaled_image("hook.png",6), 
             "scrap" : pygame.transform.scale(load_trans_image("entities/scrap/scrap_1.png"),(130,160)), 
 
             "button_background": load_trans_image("buttons/bg.png"),
             "text_box": load_image("text_box.png"),
-            "head_1": load_trans_image("head/koakuma_head.png"),
+            "head_1": pygame.transform.flip(load_trans_scaled_image("head/head.png",0.15),True,False),
             "head_2": load_trans_image("head/hong_head.png"),
             "head_1_shadow": load_trans_image("head/koakuma_shadow.png"),
             "head_2_shadow": load_trans_image("head/hong_shadow.png"),
@@ -102,8 +123,8 @@ class main_game:
             "large_decor" : load_trans_tile("tiles/large_decor"),
             "block" : load_fix_tile("tiles/block"),
             "player": load_image("entities/player.png"),
-            "background_2": load_image("background3.jpg"),
-            "background": load_image("back.png"),
+            "background_2": load_trans_scaled_image("back2.png",1.17),
+            "background": load_trans_scaled_image("back.png",1.17),
             "enemy/idle" : Animation(load_trans_images("entities/enemy/idle"),duration=10,loop=True),
             "enemy/run" : Animation(load_trans_images("entities/enemy/run"),duration=10,loop=True),
             "enemy/jump" : Animation(load_trans_images("entities/enemy/jump"),duration=5,loop=True),
@@ -116,6 +137,9 @@ class main_game:
             "knife/idle" : Animation(load_images("entities/knife"),duration=5,loop=True),
             "trigger/idle": Animation(load_trans_images("entities/trigger"),duration=5,loop=True),
             "cut_trigger/idle" : Animation(load_trans_images("entities/trigger"),duration=5,loop=True),
+            "camera_trigger/idle" : Animation(load_trans_images("entities/trigger"),duration=5,loop=True),
+            "hook_start/idle": Animation(load_images("entities/hook_start"),duration=5,loop=True),
+            "hook_stop/idle": Animation(load_images("entities/hook_stop"),duration=5,loop=True),
 
             "player/idle" : Animation(load_trans_images("entities/player/idle"),duration=10,loop=True),
             "player/run" : Animation(load_trans_images("entities/player/run"),duration=10,loop=True),
@@ -127,7 +151,7 @@ class main_game:
             "particle/slash" : Animation(load_trans_scaled_images("entities/slash",0.15),duration=4,loop=False),
             "particle/hp" : Animation(load_images("particles/hp"),duration=10,loop=False),
             "projectile" : pygame.transform.flip(load_trans_image("knife.png"),True,False),
-            "harpoon" : load_image("harpoon.png"),
+            "harpoon" : load_trans_scaled_image("harpoon.png",0.1),
             #"projectile" : pygame.transform.rotate(load_image("entities/fireball/0.png"),90),
             "fireball" : Animation(load_images("entities/fireball"),duration=10,loop=True),
             "projectile_1": load_image("projectile.png"),
@@ -190,6 +214,7 @@ class main_game:
         self.HP_can = 0
 
     def load_level(self,new_level=True):
+        self.enable_y_camera = False
         self.pause = False
         self.tutorial = 0
         self.tutorial_pause = False
@@ -198,7 +223,7 @@ class main_game:
         self.pause_select_cd = 0
         self.movements = [False,False]
 
-        self.player = Player(self, (100,100), (8,15) , HP = self.HP_can + 6)
+        self.player = Player(self, (100,100), (8,15) , HP = self.HP_can + 1)
 
         self.tilemap = Tilemap(self)
 
@@ -218,12 +243,14 @@ class main_game:
         self.tilemap.load("game_testing/"+str(self.level)+".pickle")
 
         self.fire_spawners = []
+        self.hook_spawners = []
 
         for fire in self.tilemap.extract([('large_decor',8)],keep=True):
             self.fire_spawners.append(pygame.Rect(4+fire.pos[0], 4+fire.pos[1], 23, 13))
 
         self.enemy_spawners = []
-        for spawner in self.tilemap.extract([('spawners',0),('spawners',1),('spawners',2),('spawners',3),('spawners',4),('spawners',5),('spawners',6),('spawners',7),('spawners',8)],keep=False):
+        for spawner in self.tilemap.extract([('spawners',0),('spawners',1),('spawners',2),('spawners',3),('spawners',4),('spawners',11),
+                                             ('spawners',5),('spawners',6),('spawners',7),('spawners',8),('spawners',9),('spawners',10)],keep=False):
             if spawner.variant == 0:
                 self.player.position = spawner.pos #player start position
             elif spawner.variant == 1:
@@ -233,7 +260,7 @@ class main_game:
             elif spawner.variant == 3:
                 self.enemy_spawners.append(Box(self,(spawner.pos[0]+2,spawner.pos[1]+2),(26,29),duration=-1))
             elif spawner.variant == 4:
-                self.enemy_spawners.append(Scrap(self,spawner.pos,(8,8),duration=-1))
+                self.enemy_spawners.append(Scrap(self,(spawner.pos[0]-8,spawner.pos[1]),(12,20),duration=-1))
             elif spawner.variant == 5:
                 self.enemy_spawners.append(Tutorial_trigger(self,spawner.pos,(20,144),duration=-1))
             elif spawner.variant == 6:
@@ -242,18 +269,30 @@ class main_game:
                 self.enemy_spawners.append(Spike(self,spawner.pos,(16,16),duration=-1))
             elif spawner.variant == 8:
                 self.enemy_spawners.append(Knife(self,spawner.pos,(32,16),duration=-1))
+            elif spawner.variant == 9:
+                self.hook_spawners.append(Hook_start(self,spawner.pos,(16,16),duration=-1))
+            elif spawner.variant == 10:
+                self.hook_spawners.append(Hook_stop(self,spawner.pos,(16,16),duration=-1))
+            elif spawner.variant == 11:
+                self.enemy_spawners.append(Camera_trigger(self,spawner.pos,(20,500),duration=-1))   
 
+        sorted_objects = sorted(self.hook_spawners  , key=lambda obj: obj.position[0])
+        self.hook_spawners = sorted_objects
 
         if self.level == 0:
-            self.min_max_camera = [0,0]
             self.transition = -30
         elif self.level == 1:
             self.transition = -50
         elif self.level == -1:
             self.transition = -50
+        else:
+            self.transition = -50
+            self.min_max_camera = [0,30000]
 
         self.win = 0
         self.phase_3_start = False
+        if new_level:
+            self.intro = True
 
         if self.level == -1:
             if new_level:
@@ -271,25 +310,31 @@ class main_game:
                 pygame.mixer.music.play(-1)
                 '''
         if self.level == 0:
-            self.min_max_camera = [0,5000]
+            self.min_max_camera = [-1000,5000]
+            self.camera = [-900,0]
             if new_level:
-                self.in_cutscene = True
-                self.text_list = ["我回來了!","zzz...zzz...","門番又在偷懶了","安靜的從旁邊溜進去......","zzz......!","有入侵者！？"]
-                self.order_list = [True,False,True,True,False,False]
+                self.intro = False
                 '''
                 pygame.mixer.music.load("game_testing/data/sfx/music_1.wav")
                 pygame.mixer.music.set_volume(0.2)
                 pygame.mixer.music.play(-1)
                 '''
-
-        if new_level:
-            self.intro = True
             
         elif self.level == 1:
-            if new_level:
-                pygame.mixer.music.load("game_testing/data/sfx/Locked_girl.wav")
-                pygame.mixer.music.set_volume(self.bgm_factor/5*0.4)
-                pygame.mixer.music.play(-1)
+            self.min_max_camera = [0,5000]
+            self.intro = False
+
+        elif self.level == 2:
+            self.min_max_camera = [0,5000]
+            self.intro = False
+
+        elif self.level == 3:
+            self.min_max_camera = [0,5000]
+            self.in_cutscene = True
+            self.text_list = ["Freedom is near, I can smell it.","This should be the final challange!"]
+            self.order_list = [True,True]
+            self.intro = True
+                
 
     def run_game(self):
         
@@ -359,8 +404,50 @@ class main_game:
                                 self.tutorial_pause = False
                                 self.player.fast_fall()
                                 self.tutorial += 1
-                        else:
-                            pass
+                        elif self.level == 0:   
+                            if event.key == pygame.K_SPACE:
+                                self.tutorial_pause = False
+                                self.player.dash()
+                                self.tutorial += 1
+                            elif "dash" not in self.tools:
+                                self.tutorial_pause = False
+                                self.tutorial += 1
+                        elif self.level == 1:   
+                            if event.key == pygame.K_z and self.tutorial == 0:
+                                self.tutorial_pause = False
+                                self.player.attack()
+                                self.tutorial += 1
+                            if event.key == pygame.K_DOWN and self.tutorial == 1:
+                                self.tutorial_pause = False
+                                self.player.fast_fall()
+                                self.tutorial += 1
+                            elif "sword" not in self.tools:
+                                self.tutorial_pause = False
+                                self.tutorial += 1
+                        elif self.level == 2: 
+                            if "hook" not in self.tools:
+                                self.tutorial_pause = False
+                                self.tutorial += 1  
+                            if event.key == pygame.K_z and self.tutorial == 1:
+                                self.tutorial_pause = False
+                                self.player.attack()
+                                self.tutorial += 1
+                            if event.key == pygame.K_DOWN and self.tutorial == 4:
+                                self.tutorial_pause = False
+                                self.player.fast_fall()
+                                self.tutorial += 1
+                            if event.key == pygame.K_a and self.tutorial in [0,2,3]:
+                                self.tutorial_pause = False
+                                self.player.hook()
+                                self.tutorial += 1
+                        elif self.level == 3: 
+                            if "harpoon" not in self.tools:
+                                self.tutorial_pause = False
+                                self.tutorial += 1  
+                            if event.key == pygame.K_x:
+                                self.tutorial_pause = False
+                                self.player.harpoon()
+                                self.tutorial += 1
                 self.screen.blit(self.temp_screen, (0,0))
                 pygame.display.update()
                 self.clock.tick(FPS)
@@ -381,16 +468,33 @@ class main_game:
             if self.win>0 and not self.in_cutscene:
                 self.win += 1
                 pygame.mixer.music.set_volume(self.bgm_factor/5*0.2*(90-self.win)/90)
-                if self.win == 90 and self.level == 0:
-                    self.first_phase_cutscene()
                 if self.win > 90:
                     self.transition += 1
                     if self.transition > 30:
                         self.level += 1
-
-                        self.tools.append("dash_material")
+                        if self.level == 0:
+                            self.tools.append("dash_material")
+                        elif self.level == 1:
+                            self.tools.append("knife_material")
+                        elif self.level == 2:
+                            self.tools.append("hook_material")
+                        elif self.level == 3:
+                            self.tools.append("harpoon_material")
+                        elif self.level == 4:
+                            #fill black screen and "thanks for playing in the middle"
+                            self.screen.fill((0,0,0))
+                            text = self.assets['font'].render("Thanks for playing!", True, (255, 255, 255))
+                            self.screen.blit(text, (SCREEN_WIDTH//2 - text.get_width()//2, SCREEN_HEIGHT//2 - text.get_height()//2))
+                            while True:
+                                for event in pygame.event.get():
+                                    if event.type == pygame.QUIT:
+                                        pygame.quit()
+                                        sys.exit()
+                                pygame.display.update()
+                                self.clock.tick(FPS)
                         self.craft_menu()
                         self.load_level()
+
 
             if self.dead > 0:
                 self.dead += 1
@@ -399,9 +503,14 @@ class main_game:
                 if self.dead > 40:
                     if self.level > -1:
                         self.craft_menu()
+
                     self.load_level(False)
 
             self.camera[0] += (self.player.rect().centerx - self.display.get_width()/4 -self.camera[0])/20 #camera follow player x
+            if self.enable_y_camera:    
+                self.camera[1] += (self.player.rect().centery - self.display.get_height()/4 -self.camera[1])/20
+            else:
+                self.camera[1] += (-16+self.display.get_height()/32 -self.camera[1])/20
             self.camera[0] = max(self.min_max_camera[0],self.camera[0])
             self.camera[0] = min(self.min_max_camera[1],self.camera[0])
             self.render_camera = [int(self.camera[0])+50, int(self.camera[1])]
@@ -417,6 +526,17 @@ class main_game:
                         pos = (spawner.x + random.random()*spawner.width, spawner.y + random.random()*spawner.height-8)
                         self.particles.append(Particle(self,'fire',pos,velocity=[-0.2,0.3],frame=random.randint(0,20)))
                 
+                for hook in self.hook_spawners.copy():
+                    kill=hook.update((0,0),self.tilemap)
+                    hook.render(self.display,offset=self.render_camera)
+                    if hook.type == "hook_start" and hook.rect().colliderect(self.player.rect()) and self.player.on_hook:
+                        self.player.hook_move((hook.position[0]+8,hook.position[1]+8))
+                        self.hook_spawners.remove(hook)
+                    elif hook.type == "hook_stop" and hook.rect().colliderect(self.player.rect()) and self.player.on_hook:
+                        self.player.hook_stop()
+                        self.hook_spawners.remove(hook)
+                    elif kill:
+                        self.hook_spawners.remove(hook)
 
                 for enemy in self.enemy_spawners.copy():
                     kill = enemy.update((0,0),self.tilemap)
@@ -424,11 +544,23 @@ class main_game:
                         enemy.render(self.display,offset=self.render_camera)
                     if kill and enemy.type == "trigger":
                         self.enemy_spawners.remove(enemy)
-                        self.tutorial_pause = True
+                        if self.level == -1:
+                            self.tutorial_pause = True
+                        elif self.level == 0 and "dash" in self.tools:
+                            self.tutorial_pause = True
+                        elif self.level == 1 and "sword" in self.tools:
+                            self.tutorial_pause = True
+                        elif self.level == 2 and "hook" in self.tools:
+                            self.tutorial_pause = True
+                        elif self.level == 3 and "harpoon" in self.tools:
+                            self.tutorial_pause = True
                     elif kill and enemy.type == "cut_trigger":
                         self.enemy_spawners.remove(enemy)
                         self.level_end = True
                         self.end_cutscene()
+                    elif kill and enemy.type == "camera_trigger":
+                        self.enemy_spawners.remove(enemy)
+                        self.enable_y_camera = not self.enable_y_camera
                     elif kill and enemy.type == "boss":
                         self.projectiles=[] 
                         self.special_projectiles=[]
@@ -464,9 +596,7 @@ class main_game:
                         projectile[0][0] += projectile[1]
                         projectile[2] += 1
                         img = self.assets['harpoon']
-                        #scale img to 1.5 of its size
-                        img = pygame.transform.scale(img,(img.get_width()*3//2,img.get_height()*3//2))
-                        img = pygame.transform.rotate(img,-45)
+                        img = pygame.transform.scale(img,(img.get_width()*0.4,img.get_height()*0.4))
                         if projectile[1] > 0:
                             self.display.blit(img,(projectile[0][0]-img.get_width()/2 -self.render_camera[0],projectile[0][1]-img.get_height()/2-self.render_camera[1]))
                         else:
@@ -476,6 +606,16 @@ class main_game:
                                 self.projectiles.remove(projectile)
                             except:
                                 pass
+                        for enemy in self.enemy_spawners:
+                            if enemy.rect().colliderect(pygame.Rect(projectile[0][0]-16,projectile[0][1]-16,32,32)) and enemy.type == "box":
+                                enemy.HP -= 1
+                                self.sfx['hit'].play()
+                                for i in range(10):
+                                    angle = random.random()*math.pi*2
+                                    speed = random.random() *5
+                                    self.sparks.append(Gold_Flame(enemy.rect().center,angle,2+random.random()))  
+                                    self.particles.append(Particle(self,'particle',enemy.rect().center,[math.cos(angle+math.pi)*speed*0.5,math.sin(angle+math.pi)*speed*0.5],frame=random.randint(0,7)))  
+                                self.sparks.append(Gold_Flame(enemy.rect().center, 0, 5+random.random()))
                     else:
                         projectile[0][0] += projectile[1]
                         projectile[2] += 1
@@ -485,6 +625,7 @@ class main_game:
                             self.display.blit(img,(projectile[0][0]-img.get_width()/2 -self.render_camera[0],projectile[0][1]-img.get_height()/2-self.render_camera[1]))
                         else:
                             self.display.blit(pygame.transform.flip(img, True, False),(projectile[0][0]-img.get_width()/2 -self.render_camera[0],projectile[0][1]-img.get_height()/2-self.render_camera[1]))
+                        '''
                         if self.tilemap.solid_check(projectile[0]):
                             try:
                                 self.projectiles.remove(projectile) 
@@ -492,7 +633,8 @@ class main_game:
                                 pass
                             for i in range(4):
                                 self.sparks.append(Spark(projectile[0],random.random()*math.pi*2,2+random.random()))
-                        elif projectile[2] > 360:
+                        '''
+                        if projectile[2] > 360:
                             try:
                                 self.projectiles.remove(projectile)
                             except:
@@ -579,15 +721,22 @@ class main_game:
                         if event.key == pygame.K_RIGHT:
                             self.movements[1] = True
                         if event.key == pygame.K_j or event.key == pygame.K_UP:
-                            self.player.jump()
-                        if event.key == pygame.K_i:
-                            self.player.harpoon()
+                            if not self.player.on_hook:
+                                self.player.jump()
+                        if event.key == pygame.K_x:
+                            if not self.player.on_hook and "harpoon" in self.tools:
+                                self.player.harpoon()
                         if event.key == pygame.K_k or event.key == pygame.K_DOWN:
                             self.player.fast_fall()
                         if event.key == pygame.K_SPACE:
-                            self.player.dash()
+                            if not self.player.on_hook and "dash" in self.tools:
+                                self.player.dash()
+                        if event.key == pygame.K_a:
+                            if "hook" in self.tools:
+                                self.player.hook()
                         if event.key == pygame.K_z: 
-                            self.player.attack()
+                            if "sword" in self.tools:
+                                self.player.attack()
                         if event.key == pygame.K_p:
                             self.pause = True
                             #self.tutorial_pause = True
@@ -601,8 +750,10 @@ class main_game:
                             self.player.stop_jump()
 
                 #player keeps move right
-                if self.player.harpoon_counter < 1920 and not self.level_end:
+                if self.player.harpoon_counter < 1920 and not self.level_end and not self.player.on_hook:
                     self.movements[1] = True
+                elif self.player.on_hook:   
+                    self.movements[1] = False   
     
 
                 self.screen_shake_timer = max(0,self.screen_shake_timer-1)
@@ -611,7 +762,8 @@ class main_game:
             if not self.in_cutscene:
                 for i in range(self.player.HP):
                     self.display_for_outline.blit(self.assets['HP'],(i*18,10))
-                self.display_for_outline.blit(self.assets['HP'],(0,30))
+                self.display_for_outline.blit(pygame.transform.scale(self.assets['scrap'],(25,25)),(0,30))
+
                 
                 
             
@@ -621,11 +773,12 @@ class main_game:
             
             #blit self.display_entity to screen without scaling
             #if not self.dead and abs(self.player.dashing) < 50:
-            if not self.dead and not self.in_cutscene:
+            if not self.dead:
                 self.player.render_new(self.screen,offset=self.render_camera) #render player
-                scrap_text = " x " + str(self.scrap)
-                text_font = self.assets["font"].render(scrap_text, True, (255,255,255))
-                self.screen.blit(text_font, (70,145))
+                if not self.in_cutscene:
+                    scrap_text = " x " + str(self.scrap)
+                    text_font = self.assets["font"].render(scrap_text, True, (255,255,255))
+                    self.screen.blit(text_font, (70,145))
 
             if not self.in_cutscene:
                 
@@ -728,18 +881,15 @@ class main_game:
             if self.in_cutscene == True and not self.transition: 
                 speed = 3
                 #blit the text box at the buttom of the screen
+                if not self.order_list[0]:
+                    self.screen.fill((0,0,0))
                 self.screen.blit(pygame.transform.scale(self.assets["text_box"], (SCREEN_WIDTH, SCREEN_HEIGHT//4)),(0,3*SCREEN_HEIGHT//4))
                 #blit headd_1 at the left of the text box while scale it up to 2x
-                if self.order_list[0]:
-                    self.screen.blit(pygame.transform.scale(pygame.transform.flip(self.assets["head_1"],True,False),(self.assets["head_1"].get_width()*1.8,self.assets["head_1"].get_height()*1.8-3)),(10,3*SCREEN_HEIGHT//4+7))
-                    img = self.assets["head_2"].copy()
-                    img.blit(self.assets["head_2_shadow"],(0,0))
-                    self.screen.blit(pygame.transform.scale(img,(self.assets["head_2"].get_width()*1.8,self.assets["head_2"].get_height()*1.8-3)),(SCREEN_WIDTH-10-self.assets["head_2"].get_width()*1.8,3*SCREEN_HEIGHT//4+7))
+                if not self.order_list[0]:
+                    pass
 
                 else:
-                    self.screen.blit(pygame.transform.scale(self.assets["head_2"],(self.assets["head_2"].get_width()*1.8,self.assets["head_2"].get_height()*1.8-3)),(SCREEN_WIDTH-10-self.assets["head_2"].get_width()*1.8,3*SCREEN_HEIGHT//4+7))
                     img= self.assets["head_1"].copy()
-                    img.blit(self.assets["head_1_shadow"],(0,0))
                     self.screen.blit(pygame.transform.scale(pygame.transform.flip(img,True,False),(self.assets["head_1"].get_width()*1.8,self.assets["head_1"].get_height()*1.8-3)),(10,3*SCREEN_HEIGHT//4+7))
                 #blit the text using font in the assets
                 if self.text_list:
@@ -759,12 +909,10 @@ class main_game:
                     if event.type == pygame.KEYDOWN:
                         if event.key == pygame.K_SPACE:
                             self.text_list.pop(0)
+                            self.order_list.pop(0)
                             self.text_counter = 0
                             if not self.text_list:
                                 self.in_cutscene = False
-                                pygame.mixer.music.load("game_testing/data/sfx/music_1.wav")
-                                pygame.mixer.music.set_volume(self.bgm_factor/5*0.2)
-                                pygame.mixer.music.play(-1)
                                 if not self.intro :
                                     self.win = 1
                                 self.intro = False
@@ -782,8 +930,22 @@ class main_game:
         self.movements = [False,False]
         if self.level == -1:
             self.tutorial_cutscene()
-        else:
-            pass
+        elif self.level == 0:
+            self.in_cutscene = True
+            self.text_list = ["A broken knife?","Looks like it could break those boxes","*Obtain broken knife*"]
+            self.order_list = [True,True,True]
+        elif self.level == 1:
+            self.in_cutscene = True
+            self.text_list = ["A can-size grappling hook?","This place is weird","*Obtain grappling hook*"]
+            self.order_list = [True,True,True]
+        elif self.level == 2:
+            self.in_cutscene = True
+            self.text_list = ["Hmm...","I already got the knife","Maybe I should take the fork as well","*Obtain fork*"]
+            self.order_list = [True,True,True,True]
+        elif self.level == 3:
+            self.in_cutscene = True
+            self.text_list = ["The door is right there!","There's notning can stop me now!","Freedom!","......","*crack*","......"]
+            self.order_list = [True,True,True,False,False,False]
 
     def tutorial_cutscene(self):
         self.in_cutscene = True
@@ -796,26 +958,30 @@ class main_game:
         pygame.mixer.music.play(-1)
         while True:
             #blit the title screen and scale it to the screen size
-            self.screen.blit(pygame.transform.scale(self.assets["title_screen"], (SCREEN_WIDTH, SCREEN_HEIGHT)),(0,0))
+            self.screen.blit(pygame.transform.scale(self.assets["background"], (SCREEN_WIDTH, SCREEN_HEIGHT)),(0,0))
+            self.screen.fill((0,0,0))
+            #blit "Naffin-Can /n go RUN" at the middle of the screen using font, with "Can" being gray and "RUN" being red
+            #color for blue?
+
+            text_font = self.assets["big_pixel_font"].render("Naff", True, (0,0,255))
+            self.screen.blit(text_font, (SCREEN_WIDTH//4-150, SCREEN_HEIGHT//4))
+            text_font = self.assets["big_pixel_font"].render("fin", True, (0,255,0))
+            self.screen.blit(text_font, (SCREEN_WIDTH//4+200, SCREEN_HEIGHT//4))
+            text_font = self.assets["big_pixel_font"].render("-", True, (255,255,255))
+            self.screen.blit(text_font, (SCREEN_WIDTH//4+450, SCREEN_HEIGHT//4))
+            text_font = self.assets["big_pixel_font"].render("Can", True, (100,100,100))
+            self.screen.blit(text_font, (SCREEN_WIDTH//4 + 570, SCREEN_HEIGHT//4))
+            text_font = self.assets["big_pixel_font"].render("go", True, (255,255,255))
+            self.screen.blit(text_font, (SCREEN_WIDTH//4 + 50, SCREEN_HEIGHT//4+200))
+            text_font = self.assets["big_pixel_font"].render("RUN!", True, (255,0,0))
+            self.screen.blit(text_font, (SCREEN_WIDTH//4 + 300, SCREEN_HEIGHT//4+200))
+
+            #blit "Press space to start" at the bottom of the screen using font
+            text_font = self.assets["font"].render("Press space to start", True, (255,255,255))
+            self.screen.blit(text_font, (SCREEN_WIDTH//4 + 120, SCREEN_HEIGHT//4+500))
+            
             self.clock.tick(FPS)
-            #blit a half transparent background for the button
-            button_bg = self.assets["button_background"].copy()
-            button_bg.set_alpha(128)  # Set transparency level (0-255)
-            self.screen.blit(pygame.transform.scale(button_bg,(650,600)), (-30, 350))
-            self.screen.blit(pygame.transform.scale(self.assets["title"],(450,450)),(65,-20))
-            #blit the buttons
-            if self.title_select[0]:
-                self.screen.blit(pygame.transform.scale(self.assets["title_start_selected"],(450,450)),(70,300))
-            else:
-                self.screen.blit(pygame.transform.scale(self.assets["title_start"],(450,450)),(70,300))
-            if self.title_select[2]:
-                self.screen.blit(pygame.transform.scale(self.assets["title_setting_selected"],(450,450)),(70,420))
-            else:
-                self.screen.blit(pygame.transform.scale(self.assets["title_setting"],(450,450)),(70,420))
-            if self.title_select[1]:
-                self.screen.blit(pygame.transform.scale(self.assets["title_quit_selected"],(450,450)),(70,540))
-            else:
-                self.screen.blit(pygame.transform.scale(self.assets["title_quit"],(450,450)),(70,540))
+            
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
@@ -1204,10 +1370,10 @@ class main_game:
                     self.screen.blit(self.assets["uncraftable"],(900,620))
             if True in self.craft_select[2]:
                 cost = 0
-                extra_text = " Enter next level"
-                self.screen.blit(self.assets["pressed_menu"],(900, 4*SCREEN_HEIGHT/6+50))
+                extra_text = " GO!"
+                self.screen.blit(self.assets["craftable_selected"],(900, 4*SCREEN_HEIGHT/6+100))
             else:
-                self.screen.blit(self.assets["menu"],(900, 4*SCREEN_HEIGHT/6+50))
+                self.screen.blit(self.assets["craftable"],(900, 4*SCREEN_HEIGHT/6+100))
 
             text_font = self.assets["pixel_font"].render("craft", True, (255,237,193))
             self.screen.blit(text_font, (110, 335))
@@ -1216,6 +1382,9 @@ class main_game:
             self.screen.blit(text_font, (110, 745))
             self.screen.blit(text_font, (567, 745))
             self.screen.blit(text_font, (1025, 745))
+
+            text_font = self.assets["pixel_font"].render("GO!!", True, (255,237,193))
+            self.screen.blit(text_font, (1055, 865))
 
 
 
@@ -1229,28 +1398,51 @@ class main_game:
             text_font = self.assets["font_setting"].render(text, True, (255,255,255))
             self.screen.blit(text_font, (100, 855))
 
-            self.screen.blit(self.assets["craft_back"],(68,50))
+            if self.HP_can < 4:
+                self.screen.blit(self.assets["craft_back"],(68,50))
+            else:
+                self.screen.blit(self.assets["crafted_back"],(68,50))
             self.screen.blit(self.assets["extra_can"],(90,70))
-            self.screen.blit(self.assets["craft_back"],(523,50))
+
+            if "dash" not in self.tools:
+                self.screen.blit(self.assets["craft_back"],(523,50))
+            else:
+                self.screen.blit(self.assets["crafted_back"],(523,50))
+            self.screen.blit(self.assets["dash"],(620,70))
 
             if self.level > 0:
-                self.screen.blit(self.assets["craft_back"],(978,50))
+                if "sword" not in self.tools:
+                    self.screen.blit(self.assets["craft_back"],(978,50))
+                else:
+                    self.screen.blit(self.assets["crafted_back"],(978,50))
+                self.screen.blit(self.assets["sword"],(1020,80))
             else:
                 self.screen.blit(self.assets["craft_back_locked"],(978,50))
 
 
             if self.level > 1:
-                self.screen.blit(self.assets["craft_back"],(68,450))
+                if "hook" not in self.tools:
+                    self.screen.blit(self.assets["craft_back"],(68,450))
+                else:
+                    self.screen.blit(self.assets["crafted_back"],(68,450))
+                self.screen.blit(self.assets["hook"],(92,480))
             else:
                 self.screen.blit(self.assets["craft_back_locked"],(68,450))
 
             if self.level > 2:
-                self.screen.blit(self.assets["craft_back"],(523,450))
+                if "harpoon" not in self.tools:
+                    self.screen.blit(self.assets["craft_back"],(523,450))
+                else:
+                    self.screen.blit(self.assets["crafted_back"],(523,450))
+                self.screen.blit(self.assets["harpoon"],(550,480))
             else:
                 self.screen.blit(self.assets["craft_back_locked"],(523,450))
 
             if self.level > 3:  
-                self.screen.blit(self.assets["craft_back"],(978,450))
+                if "harpoon" not in self.tools:
+                    self.screen.blit(self.assets["craft_back"],(978,450))
+                else:
+                    self.screen.blit(self.assets["crafted_back"],(978,450))
             else:
                 self.screen.blit(self.assets["craft_back_locked"],(978,450))
             
@@ -1270,7 +1462,7 @@ class main_game:
                             
                         elif self.craft_select[0][2]:
                             #craft shield
-                            self.craft("shield")
+                            self.craft("sword")
                             
                         elif self.craft_select[1][0]:
                             #craft hook
@@ -1278,7 +1470,7 @@ class main_game:
                             
                         elif self.craft_select[1][1]:
                             #craft sord
-                            self.craft("sword")
+                            self.craft("harpoon")
                             
                         elif self.craft_select[1][2]:
                             #craft harpoon
@@ -1349,16 +1541,16 @@ class main_game:
             self.tools.remove("dash_material")
         elif item == "shield" and self.can_craft[2]:
             cost = 50
-            self.tools.append("shield")
-            self.tools.remove("shield_material")
+            self.tools.append("sword")
+            self.tools.remove("sword_material")
         elif item == "hook" and self.can_craft[3]:
             cost = 70
             self.tools.append("hook")
             self.tools.remove("hook_material")
         elif item == "sword" and self.can_craft[4]:
             cost = 70   
-            self.tools.append("sword")
-            self.tools.remove("sword_material") 
+            self.tools.append("harpoon")
+            self.tools.remove("harpoon_material") 
         elif item == "harpoon" and self.can_craft[5]:
             cost = 100
             self.tools.append("harpoon")

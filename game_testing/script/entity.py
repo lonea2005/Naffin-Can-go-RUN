@@ -167,6 +167,7 @@ class Player(physics_entity):
         self.damage=2
         self.score = 0
         self.charge_effect = False
+        self.weapon = "貪欲的叉勺"
         if self.weapon == "貪欲的叉勺":
             self.damage = 3
             self.max_attack_cool_down = 20
@@ -205,6 +206,10 @@ class Player(physics_entity):
 
         self.harpoon_counter = 0
         self.tutorial_jumping = 0
+        self.on_hook = False
+        self.on_hook_moving = False
+        self.hook_pos = (0,0)
+
         
     
     def testing_stats(self):
@@ -226,8 +231,10 @@ class Player(physics_entity):
             self.harpoon_counter -= 1
             if self.harpoon_counter == 1920:
                 self.main_game.projectiles.append([[self.rect().centerx,self.rect().centery],3,1,"harpoon"])
-        if self.velocity[1]<5 and not (abs(self.dashing) > 50) and self.harpoon_counter<1800:
+        if self.velocity[1]<5 and not (abs(self.dashing) > 50) and self.harpoon_counter<1800 and not self.on_hook:
             self.velocity[1] = min(5,self.velocity[1]+0.1) #gravity
+        if self.harpoon_counter <= 1500:
+            self.harpoon_counter = 0
 
         self.air_time += 1
 
@@ -240,12 +247,12 @@ class Player(physics_entity):
         if self.check_collision['down']:
             self.air_time = 0
             self.jump_count = 1
-        if self.check_collision['right'] and not self.check_collision['up']:
-            self.take_damage(1,[1,0])
+        #if self.check_collision['right'] and not self.check_collision['up']:
+        #    self.take_damage(1,[1,0])
         elif self.check_collision['up']:
             self.inv_time = 10
         if self.attack_animation > 0:
-            self.set_action('attack')
+            #self.set_action('attack')
             self.attack_animation -= 1
         elif self.air_time > 4:
             self.set_action('jump') 
@@ -264,9 +271,9 @@ class Player(physics_entity):
                 self.velocity[0] *= 0.1
             pv = [math.cos(random.random()*math.pi*2)*random.random()*0.5+0.5,math.sin(random.random()*math.pi*2)*random.random()*0.5+0.5]
             self.main_game.particles.append(Particle(self.main_game,'particle',self.rect().center,pv,frame=random.randint(0,7)))
-        if self.velocity[0] > 0:
+        if self.velocity[0] > 0 and not self.on_hook:
             self.velocity[0] = max(0,self.velocity[0]-0.1)
-        if self.velocity[0] < 0:
+        if self.velocity[0] < 0 and not self.on_hook:
             self.velocity[0] = min(0,self.velocity[0]+0.1)   
 
         self.extra_attack_frame = max(0,self.extra_attack_frame-1)
@@ -307,8 +314,11 @@ class Player(physics_entity):
             self.stop_jump_check = True
 
     def fast_fall(self):
+        if self.on_hook:
+            self.hook_stop()
         if not self.check_collision['down']:
             self.velocity[1] = 10
+        
             
     def attack(self,is_extra=False):
         if self.attack_cool_down == 0:
@@ -353,7 +363,7 @@ class Player(physics_entity):
                     hitbox = pygame.Rect(self.position[0]+8,self.position[1],28,22)   
                     self.main_game.particles.append(Particle(self.main_game,'slash',(self.rect().centerx +18,self.rect().centery),velocity=[0,0],frame=10,flip=True))  
                 for enemy in self.main_game.enemy_spawners:
-                    if hitbox.colliderect(enemy.rect()):
+                    if hitbox.colliderect(enemy.rect()) and (enemy.type == 'box' or enemy.type == 'knife'):
                         enemy.HP -= self.damage
                         self.main_game.sfx['hit'].play()
                         for i in range(10):
@@ -362,7 +372,7 @@ class Player(physics_entity):
                             self.main_game.sparks.append(Gold_Flame(enemy.rect().center,angle,2+random.random()))  
                             self.main_game.particles.append(Particle(self.main_game,'particle',enemy.rect().center,[math.cos(angle+math.pi)*speed*0.5,math.sin(angle+math.pi)*speed*0.5],frame=random.randint(0,7)))  
                         self.main_game.sparks.append(Gold_Flame(enemy.rect().center, 0, 5+random.random()))
-                        self.main_game.sparks.append(Gold_Flame(enemy.rect().center, math.pi, 5+random.random()))
+                        #self.main_game.sparks.append(Gold_Flame(enemy.rect().center, math.pi, 5+random.random()))
                 for bullet in self.main_game.projectiles.copy():
                     if hitbox.colliderect(pygame.Rect(bullet[0][0]-4,bullet[0][1]-4,8,8)):
                         self.charge = min(self.charge+self.charge_per_hit,self.max_charge)
@@ -414,9 +424,44 @@ class Player(physics_entity):
             self.main_game.sfx['dash'].play()
             self.velocity[1] = 0
             self.dashing = -60 if self.flip else 60
-            self.inv_time = 15 #extra 5 frams of invincibility
             return True 
         return False
+    
+    def hook(self):
+        if "hook" in self.main_game.tools:
+            for hook_start in self.main_game.hook_spawners:
+                if abs(hook_start.check_player_pos()[0]) <= 80 and hook_start.type == "hook_start":
+                    self.hook_pos = hook_start.rect().center
+                    self.velocity = [0,0]
+                    self.main_game.sfx['jump'].play()
+                    self.on_hook = True
+                    direction = [self.hook_pos[0]-self.rect().centerx,self.hook_pos[1]-self.rect().centery]
+                    length = math.sqrt(direction[0]**2 + direction[1]**2)
+                    direction = [direction[0]/length,direction[1]/length]
+                    self.velocity = [direction[0]*3,direction[1]*3]
+                    return True
+            return True
+    
+    def hook_move(self,pos):
+        #calculate the diretion from player position to the hook_pos
+        self.position = list(pos)
+        for stop in self.main_game.hook_spawners:
+            if stop.type == "hook_stop" and stop.used == False:
+                self.hook_pos = stop.rect().center
+                direction = [self.hook_pos[0]-self.rect().centerx,self.hook_pos[1]-self.rect().centery]
+                length = math.sqrt(direction[0]**2 + direction[1]**2)
+                direction = [direction[0]/length,direction[1]/length]
+                self.velocity = [direction[0]*3,direction[1]*3]
+                self.on_hook_moving = True
+                stop.used = True
+                return True
+        
+    def hook_stop(self):
+        self.on_hook = False
+        self.on_hook_moving = False
+        self.velocity = [0,0]
+        self.hook_pos = (0,0)
+        return True
 
     def harpoon(self):
         if "harpoon" in self.main_game.tools and self.harpoon_counter <= 0:
@@ -934,19 +979,21 @@ class obstacle(physics_entity):
     def __init__(self, main_game, entity_type, position, size):
         super().__init__(main_game, entity_type, position, size)
         self.render_type = 'obstacle'
+        self.check_pos_reult = [0,0]
+        self.HP = 1
     def check_player_pos(self):
         return list((self.main_game.player.rect().centerx - self.rect().centerx, self.main_game.player.rect().centery - self.rect().centery))
 
     def render(self,surface,offset=[0,0]):
-        super().render(surface,offset)
+        if abs(self.check_pos_reult[0]) < 250:
+            super().render(surface,offset)
     
     def update(self, movement=(0, 0), tilemap=None):
-        super().update(movement, tilemap)
-        if self.check_player_pos()[0] > 500:
-            if self.type == 'trigger' or self.type == 'cut_trigger':
-                #self.main_game.tutorial += 1
-                pass
+        self.check_pos_reult = self.check_player_pos()
+        if self.check_pos_reult[0] > 200:
             return True
+        if abs(self.check_pos_reult[0]) < 200:
+            super().update(movement, tilemap)
 
 
 class Beam(obstacle):
@@ -961,7 +1008,7 @@ class Beam(obstacle):
         self.duration -= 1
         if self.duration == 0:
             return True
-        if self.rect().colliderect(self.main_game.player.rect()) and abs(self.main_game.player.dashing) < 50: 
+        if self.rect().colliderect(self.main_game.player.rect()): 
             self.main_game.player.take_damage(1,self.check_player_pos())
         return super().update(movement,tilemap)
         
@@ -976,10 +1023,20 @@ class Box(obstacle):
 
     def update(self,movement=(0,0),tilemap=None):
         self.duration -= 1
-        if self.duration == 0:
+        if self.HP <= 0:
+            self.main_game.scrap += 2
             return True
-        if self.rect().colliderect(self.main_game.player.rect()) and abs(self.main_game.player.dashing) < 50: 
-            self.main_game.player.take_damage(1,self.check_player_pos())
+        if self.rect().colliderect(self.main_game.player.rect()): 
+            if self.main_game.player.velocity[1] > 9 and "sword" in self.main_game.tools:
+                self.HP -= 1
+                self.main_game.sfx['hit'].play()
+                for i in range(10):
+                    angle = random.random()*math.pi*2
+                    speed = random.random() *5
+                    self.main_game.sparks.append(Gold_Flame(self.rect().center,angle,2+random.random()))  
+                    self.main_game.particles.append(Particle(self.main_game,'particle',self.rect().center,[math.cos(angle+math.pi)*speed*0.5,math.sin(angle+math.pi)*speed*0.5],frame=random.randint(0,7)))  
+            else:
+                self.main_game.player.take_damage(1,self.check_player_pos())
 
         return super().update(movement,tilemap)
     
@@ -995,7 +1052,7 @@ class Spike(obstacle):
         self.duration -= 1
         if self.duration == 0:
             return True
-        if self.rect().colliderect(self.main_game.player.rect()) and abs(self.main_game.player.dashing) < 50: 
+        if self.rect().colliderect(self.main_game.player.rect()): 
             self.main_game.player.take_damage(1,self.check_player_pos())
 
         return super().update(movement,tilemap)
@@ -1012,7 +1069,7 @@ class pillar(obstacle):
         self.duration -= 1
         if self.duration == 0:
             return True
-        if self.rect().colliderect(self.main_game.player.rect()) and abs(self.main_game.player.dashing) < 50: 
+        if self.rect().colliderect(self.main_game.player.rect()): 
             self.main_game.player.take_damage(1,self.check_player_pos())
 
         return super().update(movement,tilemap)
@@ -1035,6 +1092,39 @@ class Scrap(obstacle):
             self.main_game.scrap += 1
             self.main_game.player.score += 1
             #remove the scrap
+            return True
+        return super().update(movement,tilemap)
+    
+class Hook_start(obstacle):
+    def __init__(self,main_game,position,size,velocity=[0,0],duration=0):
+        super().__init__(main_game,'hook_start',position,size)
+        self.duration = duration
+        self.velocity = velocity
+        self.anim_offset = [0,0]
+        self.type = 'hook_start'        
+
+    def update(self,movement=(0,0),tilemap=None):
+        self.duration -= 1
+        if self.duration == 0:
+            return True
+        if self.rect().colliderect(self.main_game.player.rect()): 
+            return True
+        return super().update(movement,tilemap)
+
+class Hook_stop(obstacle):
+    def __init__(self,main_game,position,size,velocity=[0,0],duration=0):
+        super().__init__(main_game,'hook_stop',position,size)
+        self.duration = duration
+        self.velocity = velocity
+        self.anim_offset = [0,0]
+        self.type = 'hook_stop'        
+        self.used = False
+
+    def update(self,movement=(0,0),tilemap=None):
+        self.duration -= 1
+        if self.duration == 0:
+            return True
+        if self.rect().colliderect(self.main_game.player.rect()): 
             return True
         return super().update(movement,tilemap)
         
@@ -1078,6 +1168,22 @@ class Cutscene_trigger(obstacle):
         self.velocity = velocity
         self.anim_offset = [0,0]
         self.type = 'cut_trigger'        
+
+    def update(self,movement=(0,0),tilemap=None):
+        self.duration -= 1
+        if self.duration == 0:
+            return True
+        if self.rect().colliderect(self.main_game.player.rect()): 
+            return True
+        return super().update(movement,tilemap)
+    
+class Camera_trigger(obstacle):
+    def __init__(self,main_game,position,size,velocity=[0,0],duration=0):
+        super().__init__(main_game,'camera_trigger',position,size)
+        self.duration = duration
+        self.velocity = velocity
+        self.anim_offset = [0,0]
+        self.type = 'camera_trigger'        
 
     def update(self,movement=(0,0),tilemap=None):
         self.duration -= 1
