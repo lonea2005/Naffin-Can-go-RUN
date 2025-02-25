@@ -1,8 +1,14 @@
 import pygame
 import os
 
-BASE_IMAGE_PATH = "game_testing/data/images/"
-BASE_SFX_PATH = "game_testing/data/sfx/"
+FILE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(os.path.dirname(FILE_DIR))
+#BASE_IMAGE_PATH = os.path.join(BASE_DIR, "game_testing/data/images/")
+BASE_IMAGE_PATH = BASE_DIR + "/game_testing/data/images/"
+BASE_SFX_PATH = BASE_DIR + "/game_testing/data/sfx/"
+
+#BASE_IMAGE_PATH = "game_testing/data/images/"
+#BASE_SFX_PATH = "game_testing/data/sfx/"
 TILE_SIZE = 16
 
 def load_sfx(path):

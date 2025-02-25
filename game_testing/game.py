@@ -22,6 +22,7 @@ SCREEN_HEIGHT = 960
 HALF_SCREEN_WIDTH = SCREEN_WIDTH // 2
 HALF_SCREEN_HEIGHT = SCREEN_HEIGHT // 2
 FPS = 60
+FILE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 class main_game:
     def __init__(self):
@@ -75,11 +76,11 @@ class main_game:
                         ]
 
         self.assets = {
-            "font": pygame.font.Font("game_testing/data/font/LXGWWenKaiMonoTC-Bold.ttf", 36),
-            "font_setting": pygame.font.Font("game_testing/data/font/LXGWWenKaiMonoTC-Bold.ttf", 50),
-            "pixel_font": pygame.font.Font("game_testing/data/font/pixel.otf", 70),
-            "big_pixel_font": pygame.font.Font("game_testing/data/font/pixel.otf", 200),
-            "small_font": pygame.font.Font("game_testing/data/font/LXGWWenKaiMonoTC-Bold.ttf", 12),
+            "font": pygame.font.Font(FILE_DIR + "/data/font/LXGWWenKaiMonoTC-Bold.ttf", 36),
+            "font_setting": pygame.font.Font(FILE_DIR + "/data/font/LXGWWenKaiMonoTC-Bold.ttf", 50),
+            "pixel_font": pygame.font.Font(FILE_DIR + "/data/font/pixel.otf", 70),
+            "big_pixel_font": pygame.font.Font(FILE_DIR + "/data/font/pixel.otf", 200),
+            "small_font": pygame.font.Font(FILE_DIR + "/data/font/LXGWWenKaiMonoTC-Bold.ttf", 12),
             "title": load_trans_image("title.png"),
             "title_screen": load_trans_image("標題畫面.jpg"),
             "title_start": load_trans_image("buttons/start_button.png"),
@@ -240,7 +241,7 @@ class main_game:
         self.in_cutscene = False
         self.cutscene_timer = 0
 
-        self.tilemap.load("game_testing/"+str(self.level)+".pickle")
+        self.tilemap.load(FILE_DIR + "/"+str(self.level)+".pickle")
 
         self.fire_spawners = []
         self.hook_spawners = []
@@ -296,7 +297,7 @@ class main_game:
 
         if self.level == -1:
             if new_level:
-                pygame.mixer.music.load("game_testing/data/sfx/music_0.wav")
+                pygame.mixer.music.load(FILE_DIR + "/data/sfx/music_0.wav")
                 pygame.mixer.music.set_volume(self.bgm_factor/5*0.2)
                 pygame.mixer.music.play(-1)
         if self.level == -1:
@@ -305,7 +306,7 @@ class main_game:
                 self.text_list = ["Finally...the day has come.","Today, me, Naffin the Can, will earn FREEDOM myself","Time to escape!"]
                 self.order_list = [True,True,True]
                 '''
-                pygame.mixer.music.load("game_testing/data/sfx/music_1.wav")
+                pygame.mixer.music.load(FILE_DIR + "/data/sfx/music_1.wav")
                 pygame.mixer.music.set_volume(0.2)
                 pygame.mixer.music.play(-1)
                 '''
@@ -315,7 +316,7 @@ class main_game:
             if new_level:
                 self.intro = False
                 '''
-                pygame.mixer.music.load("game_testing/data/sfx/music_1.wav")
+                pygame.mixer.music.load(FILE_DIR + "/data/sfx/music_1.wav")
                 pygame.mixer.music.set_volume(0.2)
                 pygame.mixer.music.play(-1)
                 '''
@@ -475,7 +476,7 @@ class main_game:
                         if self.level == 0:
                             self.tools.append("dash_material")
                         elif self.level == 1:
-                            self.tools.append("knife_material")
+                            self.tools.append("sword_material")
                         elif self.level == 2:
                             self.tools.append("hook_material")
                         elif self.level == 3:
@@ -953,7 +954,7 @@ class main_game:
         self.order_list = [True,True,True,True]
 
     def run_main_menu(self):
-        pygame.mixer.music.load("game_testing/data/sfx/Raise_the_Flag_of_Cheating.wav")
+        pygame.mixer.music.load(FILE_DIR + "/data/sfx/Raise_the_Flag_of_Cheating.wav")
         pygame.mixer.music.set_volume(self.bgm_factor/5*0.3)
         pygame.mixer.music.play(-1)
         while True:
@@ -998,7 +999,7 @@ class main_game:
                         self.level = -1
                         self.load_level()
                         self.run_game()
-                        pygame.mixer.music.load("game_testing/data/sfx/Raise_the_Flag_of_Cheating.wav")
+                        pygame.mixer.music.load(FILE_DIR + "/data/sfx/Raise_the_Flag_of_Cheating.wav")
                         pygame.mixer.music.set_volume(self.bgm_factor/5*0.3)
                         pygame.mixer.music.play(-1)
                     if event.key == pygame.K_e:
@@ -1016,7 +1017,7 @@ class main_game:
                             pygame.display.flip()
                         self.load_level()
                         self.run_game()
-                        pygame.mixer.music.load("game_testing/data/sfx/Raise_the_Flag_of_Cheating.wav")
+                        pygame.mixer.music.load(FILE_DIR + "/data/sfx/Raise_the_Flag_of_Cheating.wav")
                         pygame.mixer.music.set_volume(self.bgm_factor/5*0.3)
                         pygame.mixer.music.play(-1)
                     elif event.button == 0 and self.title_select[2]:
